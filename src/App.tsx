@@ -9,6 +9,7 @@ import Assignments from "./pages/Assignments";
 import Lectures from "./pages/Lectures";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
+import AdminUpload from "./pages/AdminUpload";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -50,6 +51,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/assignments" element={<Assignments />} />
           <Route path="/lectures" element={<Lectures />} />
+          <Route path="/admin/upload" element={<AdminUpload />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
