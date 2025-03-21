@@ -4,10 +4,12 @@ import Layout from "@/components/Layout";
 import AssignmentCard from "@/components/AssignmentCard";
 import { currentUser, getAssignmentsForDepartment } from "@/lib/data";
 import { ClipboardX } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Assignments = () => {
   const animationRefs = useRef<(HTMLDivElement | null)[]>([]);
   const assignments = getAssignmentsForDepartment(currentUser.department);
+  const isLoading = false; // In a real app, this would be from a data fetching hook
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -22,16 +24,48 @@ const Assignments = () => {
       { threshold: 0.1 }
     );
 
-    animationRefs.current.forEach((ref) => {
-      if (ref) observer.observe(ref);
-    });
+    if (!isLoading) {
+      animationRefs.current.forEach((ref) => {
+        if (ref) observer.observe(ref);
+      });
+    }
 
     return () => {
       animationRefs.current.forEach((ref) => {
         if (ref) observer.unobserve(ref);
       });
     };
-  }, []);
+  }, [isLoading]);
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center justify-between mb-8">
+            <h1 className="text-3xl font-semibold">Assignments</h1>
+            <div className="text-sm text-muted-foreground">
+              Loading...
+            </div>
+          </div>
+          <div className="space-y-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="w-full bg-white/50 rounded-2xl p-5">
+                <div className="flex justify-between items-start">
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-40 mb-2" />
+                    <Skeleton className="h-5 w-64" />
+                  </div>
+                  <Skeleton className="h-6 w-16 rounded-full" />
+                </div>
+                <Skeleton className="h-4 w-3/4 mt-4" />
+                <Skeleton className="h-4 w-1/2 mt-2" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>

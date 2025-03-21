@@ -4,10 +4,12 @@ import Layout from "@/components/Layout";
 import AnnouncementCard from "@/components/AnnouncementCard";
 import { currentUser, getAnnouncementsForDepartment } from "@/lib/data";
 import { Bell, BellOff } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Index = () => {
   const animationRefs = useRef<(HTMLDivElement | null)[]>([]);
   const announcements = getAnnouncementsForDepartment(currentUser.department);
+  const isLoading = false; // In a real app, this would be from a data fetching hook
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -22,16 +24,39 @@ const Index = () => {
       { threshold: 0.1 }
     );
 
-    animationRefs.current.forEach((ref) => {
-      if (ref) observer.observe(ref);
-    });
+    if (!isLoading) {
+      animationRefs.current.forEach((ref) => {
+        if (ref) observer.observe(ref);
+      });
+    }
 
     return () => {
       animationRefs.current.forEach((ref) => {
         if (ref) observer.unobserve(ref);
       });
     };
-  }, []);
+  }, [isLoading]);
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center justify-between mb-8">
+            <h1 className="text-3xl font-semibold">Announcements</h1>
+          </div>
+          <div className="space-y-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="w-full p-5 rounded-2xl bg-white/50">
+                <Skeleton className="h-6 w-1/4 mb-2" />
+                <Skeleton className="h-4 w-3/4 mb-1" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
