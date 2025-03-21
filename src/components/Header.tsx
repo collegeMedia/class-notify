@@ -110,8 +110,8 @@ const Header = ({ user }: HeaderProps) => {
       {/* Mobile Navigation */}
       {isOpen && (
         <div className="fixed inset-0 top-16 z-50 bg-background md:hidden animate-fade-in">
-          <div className="container px-4 py-6 space-y-4">
-            <nav className="flex flex-col space-y-4">
+          <div className="container px-4 py-6 space-y-4 bg-white border shadow-subtle">
+            <nav className="bg-white/50 rounded-2xl p-6 flex flex-col space-y-4">
               {navItems.map((item) => (
                 <NavLink
                   key={item.href}

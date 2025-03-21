@@ -107,7 +107,6 @@ const Lectures = () => {
                   <div 
                     key={lecture.id}
                     ref={(el) => (animationRefs.current[index] = el)}
-                    className="opacity-0"
                     style={{ 
                       transitionDelay: `${index * 50}ms`,
                       transform: "translateY(20px)" 
