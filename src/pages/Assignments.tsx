@@ -1,13 +1,13 @@
 
 import { useEffect, useRef } from "react";
 import Layout from "@/components/Layout";
-import AnnouncementCard from "@/components/AnnouncementCard";
-import { currentUser, getAnnouncementsForDepartment } from "@/lib/data";
-import { Bell, BellOff } from "lucide-react";
+import AssignmentCard from "@/components/AssignmentCard";
+import { currentUser, getAssignmentsForDepartment } from "@/lib/data";
+import { ClipboardX } from "lucide-react";
 
-const Index = () => {
+const Assignments = () => {
   const animationRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const announcements = getAnnouncementsForDepartment(currentUser.department);
+  const assignments = getAssignmentsForDepartment(currentUser.department);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -37,14 +37,17 @@ const Index = () => {
     <Layout>
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-semibold">Announcements</h1>
+          <h1 className="text-3xl font-semibold">Assignments</h1>
+          <div className="text-sm text-muted-foreground">
+            {assignments.length} assignment{assignments.length !== 1 ? 's' : ''}
+          </div>
         </div>
 
-        {announcements.length > 0 ? (
+        {assignments.length > 0 ? (
           <div className="space-y-6">
-            {announcements.map((announcement, index) => (
+            {assignments.map((assignment, index) => (
               <div 
-                key={announcement.id}
+                key={assignment.id}
                 ref={(el) => (animationRefs.current[index] = el)}
                 className="opacity-0"
                 style={{ 
@@ -52,24 +55,18 @@ const Index = () => {
                   transform: "translateY(20px)" 
                 }}
               >
-                <AnnouncementCard 
-                  announcement={announcement} 
-                  isHighlighted={
-                    announcement.department === currentUser.department || 
-                    announcement.important
-                  } 
-                />
+                <AssignmentCard assignment={assignment} />
               </div>
             ))}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center bg-white/50 rounded-2xl p-12 shadow-subtle">
             <div className="p-4 bg-muted rounded-full">
-              <BellOff size={24} className="text-muted-foreground" />
+              <ClipboardX size={24} className="text-muted-foreground" />
             </div>
-            <h3 className="mt-4 text-xl font-medium">No announcements</h3>
+            <h3 className="mt-4 text-xl font-medium">No assignments</h3>
             <p className="mt-2 text-center text-muted-foreground max-w-md">
-              There are currently no announcements for your department or the general student body.
+              There are currently no assignments for your department.
             </p>
           </div>
         )}
@@ -78,4 +75,4 @@ const Index = () => {
   );
 };
 
-export default Index;
+export default Assignments;
