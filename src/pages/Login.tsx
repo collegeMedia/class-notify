@@ -1,12 +1,17 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LockIcon, MailIcon, UserIcon } from "lucide-react";
+import { LockIcon, MailIcon, UserIcon, ShieldIcon } from "lucide-react";
 import { currentUser } from "@/lib/data";
+import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/hooks/use-toast";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 
 const Login = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const { toast } = useToast();
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -16,6 +21,23 @@ const Login = () => {
     setTimeout(() => {
       // In a real app, this would validate credentials
       setLoading(false);
+      
+      // Set user as admin if the switch is toggled
+      if (isAdmin) {
+        // Override the currentUser object with admin role
+        Object.assign(currentUser, {
+          ...currentUser,
+          role: "admin",
+          name: "Admin User",
+          email: "admin@university.edu",
+        });
+        
+        toast({
+          title: "Admin Login Successful",
+          description: "You've been logged in with admin privileges.",
+        });
+      }
+      
       navigate("/");
     }, 1500);
   };
@@ -84,9 +106,30 @@ const Login = () => {
             </a>
           </div>
 
+          <div className="flex items-center space-x-2 py-2">
+            <Switch
+              id="admin-mode"
+              checked={isAdmin}
+              onCheckedChange={setIsAdmin}
+            />
+            <label htmlFor="admin-mode" className="text-sm font-medium flex items-center gap-1">
+              <ShieldIcon className="h-4 w-4 text-amber-500" />
+              Login as Admin
+            </label>
+            <Popover>
+              <PopoverTrigger className="text-muted-foreground ml-1">
+                <div className="rounded-full bg-muted h-4 w-4 text-xs flex items-center justify-center">?</div>
+              </PopoverTrigger>
+              <PopoverContent className="text-xs max-w-[200px]">
+                Enable this option to log in with administrator privileges, which allows
+                you to upload and manage institutional data.
+              </PopoverContent>
+            </Popover>
+          </div>
+
           <button
             type="submit"
-            className={`w-full py-2.5 px-4 rounded-xl bg-primary hover:bg-primary/90 text-white font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+            className={`w-full py-2.5 px-4 rounded-xl ${isAdmin ? "bg-amber-500 hover:bg-amber-600" : "bg-primary hover:bg-primary/90"} text-white font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
               loading ? "opacity-80 cursor-not-allowed" : ""
             }`}
             disabled={loading}
@@ -100,7 +143,7 @@ const Login = () => {
                 <span>Signing In...</span>
               </span>
             ) : (
-              "Sign In"
+              `Sign In ${isAdmin ? "as Admin" : ""}`
             )}
           </button>
         </form>
