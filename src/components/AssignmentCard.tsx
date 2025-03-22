@@ -1,14 +1,17 @@
 
 import { Assignment } from "@/lib/types";
-import { CalendarIcon, ClockIcon, FileIcon } from "lucide-react";
+import { CalendarIcon, ClockIcon, FileIcon, PencilIcon } from "lucide-react";
 import { format, formatDistanceToNow, isPast } from "date-fns";
 import DepartmentBadge from "./DepartmentBadge";
+import { Link } from "react-router-dom";
+import { Button } from "./ui/button";
 
 interface AssignmentCardProps {
   assignment: Assignment;
+  isEditable?: boolean;
 }
 
-const AssignmentCard = ({ assignment }: AssignmentCardProps) => {
+const AssignmentCard = ({ assignment, isEditable = false }: AssignmentCardProps) => {
   const dueDate = new Date(assignment.dueDate);
   const createdDate = new Date(assignment.createdAt);
   const isOverdue = isPast(dueDate);
@@ -25,12 +28,22 @@ const AssignmentCard = ({ assignment }: AssignmentCardProps) => {
           <h3 className="text-lg font-medium">{assignment.title}</h3>
         </div>
         
-        <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-          isOverdue 
-            ? 'bg-red-100 text-red-700' 
-            : 'bg-green-100 text-green-700'
-        }`}>
-          {isOverdue ? 'Overdue' : 'Active'}
+        <div className="flex items-center gap-2">
+          {isEditable && (
+            <Link to={`/admin/upload?edit=assignment&id=${assignment.id}`}>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <PencilIcon size={16} />
+              </Button>
+            </Link>
+          )}
+          
+          <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+            isOverdue 
+              ? 'bg-red-100 text-red-700' 
+              : 'bg-green-100 text-green-700'
+          }`}>
+            {isOverdue ? 'Overdue' : 'Active'}
+          </div>
         </div>
       </div>
       

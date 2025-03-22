@@ -1,3 +1,4 @@
+
 export type UserRole = "admin" | "department_admin" | "teacher" | "student";
 
 export type Department = 
