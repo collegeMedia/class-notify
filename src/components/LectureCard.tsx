@@ -1,15 +1,18 @@
 
 import { Lecture } from "@/lib/types";
-import { ClockIcon, FileIcon, MapPinIcon } from "lucide-react";
+import { ClockIcon, FileIcon, MapPinIcon, PencilIcon } from "lucide-react";
 import DepartmentBadge from "./DepartmentBadge";
 import { format } from "date-fns";
+import { Link } from "react-router-dom";
+import { Button } from "./ui/button";
 
 interface LectureCardProps {
   lecture: Lecture;
   isToday?: boolean;
+  isEditable?: boolean;
 }
 
-const LectureCard = ({ lecture, isToday = true }: LectureCardProps) => {
+const LectureCard = ({ lecture, isToday = true, isEditable = false }: LectureCardProps) => {
   const lectureDate = new Date(`${lecture.date}T${lecture.startTime}`);
   
   return (
@@ -28,6 +31,14 @@ const LectureCard = ({ lecture, isToday = true }: LectureCardProps) => {
           </div>
           <h3 className="text-lg font-medium">{lecture.title}</h3>
         </div>
+        
+        {isEditable && (
+          <Link to={`/admin/upload?edit=lecture&id=${lecture.id}`}>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <PencilIcon size={16} />
+            </Button>
+          </Link>
+        )}
       </div>
       
       <p className="mt-2 text-muted-foreground line-clamp-2">{lecture.description}</p>

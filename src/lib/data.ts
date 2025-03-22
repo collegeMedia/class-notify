@@ -35,7 +35,8 @@ export const users: User[] = [
     email: "cshead@university.edu",
     role: "department_admin",
     department: "Computer Science",
-    avatar: "https://i.pravatar.cc/150?img=33"
+    avatar: "https://i.pravatar.cc/150?img=33",
+    associatedSemesters: ["Fall 2023", "Spring 2024", "Summer 2024", "Fall 2024"]
   },
   {
     id: "3",
@@ -43,7 +44,9 @@ export const users: User[] = [
     email: "sjohnson@university.edu",
     role: "teacher",
     department: "Computer Science",
-    avatar: "https://i.pravatar.cc/150?img=10"
+    avatar: "https://i.pravatar.cc/150?img=10",
+    teachingSubjects: ["1", "4", "6"],
+    associatedSemesters: ["Fall 2023", "Spring 2024"]
   },
   {
     id: "4",
@@ -51,7 +54,9 @@ export const users: User[] = [
     email: "mchen@university.edu",
     role: "teacher",
     department: "Computer Science",
-    avatar: "https://i.pravatar.cc/150?img=12"
+    avatar: "https://i.pravatar.cc/150?img=12",
+    teachingSubjects: ["2", "7", "8"],
+    associatedSemesters: ["Fall 2023", "Spring 2024", "Summer 2024"]
   },
   {
     id: "5",
@@ -59,7 +64,8 @@ export const users: User[] = [
     email: "eehead@university.edu",
     role: "department_admin",
     department: "Electrical Engineering",
-    avatar: "https://i.pravatar.cc/150?img=15"
+    avatar: "https://i.pravatar.cc/150?img=15",
+    associatedSemesters: ["Fall 2023", "Spring 2024", "Summer 2024", "Fall 2024"]
   },
   {
     id: "6",
@@ -67,7 +73,9 @@ export const users: User[] = [
     email: "erodriguez@university.edu",
     role: "teacher",
     department: "Electrical Engineering",
-    avatar: "https://i.pravatar.cc/150?img=5"
+    avatar: "https://i.pravatar.cc/150?img=5",
+    teachingSubjects: ["3", "5", "9"],
+    associatedSemesters: ["Fall 2023", "Spring 2024"]
   },
   {
     id: "7",

@@ -1,15 +1,56 @@
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Layout from "@/components/Layout";
 import AssignmentCard from "@/components/AssignmentCard";
-import { currentUser, getAssignmentsForDepartment } from "@/lib/data";
-import { ClipboardX } from "lucide-react";
+import { currentUser, getAssignmentsForDepartment, semesters } from "@/lib/data";
+import { ClipboardX, Plus, GraduationCap } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Semester } from "@/lib/types";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
 const Assignments = () => {
   const animationRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const assignments = getAssignmentsForDepartment(currentUser.department);
-  const isLoading = false; // In a real app, this would be from a data fetching hook
+  const [isLoading, setIsLoading] = useState(true);
+  const [assignments, setAssignments] = useState<any[]>([]);
+  const [selectedSemester, setSelectedSemester] = useState<Semester>(
+    currentUser.role === "student" && currentUser.semester 
+      ? currentUser.semester 
+      : "Spring 2024"
+  );
+
+  // Determine available semesters based on user role
+  const availableSemesters = (() => {
+    switch (currentUser.role) {
+      case "student":
+        // Students can only view their enrolled semester
+        return currentUser.semester ? [currentUser.semester] : [];
+      case "teacher":
+        // Teachers can view semesters they are associated with
+        return currentUser.associatedSemesters || semesters;
+      case "department_admin":
+      case "admin":
+        // Admins can view all semesters
+        return semesters;
+      default:
+        return semesters;
+    }
+  })();
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      // Simulate API call with timeout
+      setTimeout(() => {
+        setAssignments(getAssignmentsForDepartment(currentUser.department, selectedSemester));
+        setIsLoading(false);
+      }, 800);
+    };
+
+    fetchData();
+  }, [selectedSemester]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -36,6 +77,21 @@ const Assignments = () => {
       });
     };
   }, [isLoading]);
+
+  // Handle semester change
+  const handleSemesterChange = (value: Semester) => {
+    if (currentUser.role === "student" && currentUser.semester !== value) {
+      toast.error("Students can only view their enrolled semester");
+      return;
+    }
+    setSelectedSemester(value);
+    setIsLoading(true);
+  };
+
+  // Show upload button for teachers and admins
+  const canUploadAssignments = currentUser.role === "teacher" || 
+                               currentUser.role === "department_admin" || 
+                               currentUser.role === "admin";
 
   if (isLoading) {
     return (
@@ -72,8 +128,34 @@ const Assignments = () => {
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-semibold">Assignments</h1>
-          <div className="text-sm text-muted-foreground">
-            {assignments.length} assignment{assignments.length !== 1 ? 's' : ''}
+          <div className="flex items-center gap-4">
+            {canUploadAssignments && (
+              <Link to="/admin/upload#assignments">
+                <Button variant="outline" size="sm" className="flex items-center gap-1">
+                  <Plus size={16} />
+                  <span>Upload Assignment</span>
+                </Button>
+              </Link>
+            )}
+            <div className="flex items-center gap-2">
+              <GraduationCap size={18} className="text-muted-foreground" />
+              <Select 
+                value={selectedSemester} 
+                onValueChange={handleSemesterChange}
+                disabled={currentUser.role === "student"}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Select semester" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableSemesters.map(semester => (
+                    <SelectItem key={semester} value={semester}>
+                      {semester}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
@@ -88,7 +170,10 @@ const Assignments = () => {
                   transform: "translateY(20px)" 
                 }}
               >
-                <AssignmentCard assignment={assignment} />
+                <AssignmentCard 
+                  assignment={assignment} 
+                  isEditable={canUploadAssignments && assignment.author.id === currentUser.id}
+                />
               </div>
             ))}
           </div>
@@ -99,7 +184,7 @@ const Assignments = () => {
             </div>
             <h3 className="mt-4 text-xl font-medium">No assignments</h3>
             <p className="mt-2 text-center text-muted-foreground max-w-md">
-              There are currently no assignments for your department.
+              There are currently no assignments for your department in the {selectedSemester} semester.
             </p>
           </div>
         )}

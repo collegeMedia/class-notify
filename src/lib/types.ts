@@ -1,4 +1,3 @@
-
 export type UserRole = "admin" | "department_admin" | "teacher" | "student";
 
 export type Department = 
@@ -24,6 +23,8 @@ export interface User {
   avatar?: string;
   enrolledSubjects?: string[]; // IDs of subjects student is enrolled in
   semester?: Semester; // Current semester for student
+  teachingSubjects?: string[]; // IDs of subjects the teacher is teaching
+  associatedSemesters?: Semester[]; // Semesters the teacher or department admin is associated with
 }
 
 export interface Announcement {

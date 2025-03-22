@@ -3,13 +3,16 @@ import { useEffect, useRef, useState } from "react";
 import Layout from "@/components/Layout";
 import LectureCard from "@/components/LectureCard";
 import { currentUser, getTodayLectures, getSubjectsForDepartment, semesters } from "@/lib/data";
-import { BookX, Calendar, Clock, Search, GraduationCap } from "lucide-react";
+import { BookX, Calendar, Clock, Search, GraduationCap, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Lecture, Semester, Subject } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
 const Lectures = () => {
   const animationRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -18,7 +21,29 @@ const Lectures = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("today");
-  const [selectedSemester, setSelectedSemester] = useState<Semester>("Spring 2024"); // Default to current semester
+  const [selectedSemester, setSelectedSemester] = useState<Semester>(
+    currentUser.role === "student" && currentUser.semester 
+      ? currentUser.semester 
+      : "Spring 2024"
+  );
+  
+  // Determine available semesters based on user role
+  const availableSemesters = (() => {
+    switch (currentUser.role) {
+      case "student":
+        // Students can only view their enrolled semester
+        return currentUser.semester ? [currentUser.semester] : [];
+      case "teacher":
+        // Teachers can view semesters they are associated with
+        return currentUser.associatedSemesters || semesters;
+      case "department_admin":
+      case "admin":
+        // Admins can view all semesters
+        return semesters;
+      default:
+        return semesters;
+    }
+  })();
 
   useEffect(() => {
     // Simulate API fetch delay
@@ -75,9 +100,18 @@ const Lectures = () => {
 
   // Handle semester change
   const handleSemesterChange = (value: Semester) => {
+    if (currentUser.role === "student" && currentUser.semester !== value) {
+      toast.error("Students can only view their enrolled semester");
+      return;
+    }
     setSelectedSemester(value);
     setIsLoading(true);
   };
+
+  // Show upload button for teachers and admins
+  const canUploadLectures = currentUser.role === "teacher" || 
+                          currentUser.role === "department_admin" || 
+                          currentUser.role === "admin";
 
   return (
     <Layout>
@@ -85,20 +119,34 @@ const Lectures = () => {
         <div className="mb-6">
           <div className="flex justify-between items-center mb-2">
             <h1 className="text-3xl font-semibold">Lectures & Subjects</h1>
-            <div className="flex items-center gap-2">
-              <GraduationCap size={18} className="text-muted-foreground" />
-              <Select value={selectedSemester} onValueChange={handleSemesterChange}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Select semester" />
-                </SelectTrigger>
-                <SelectContent>
-                  {semesters.map(semester => (
-                    <SelectItem key={semester} value={semester}>
-                      {semester}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex items-center gap-4">
+              {canUploadLectures && (
+                <Link to="/admin/upload#lectures">
+                  <Button variant="outline" size="sm" className="flex items-center gap-1">
+                    <Plus size={16} />
+                    <span>Upload Lecture</span>
+                  </Button>
+                </Link>
+              )}
+              <div className="flex items-center gap-2">
+                <GraduationCap size={18} className="text-muted-foreground" />
+                <Select 
+                  value={selectedSemester} 
+                  onValueChange={handleSemesterChange}
+                  disabled={currentUser.role === "student"}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Select semester" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableSemesters.map(semester => (
+                      <SelectItem key={semester} value={semester}>
+                        {semester}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
           <p className="text-muted-foreground mt-1">
@@ -137,7 +185,10 @@ const Lectures = () => {
                       transform: "translateY(20px)" 
                     }}
                   >
-                    <LectureCard lecture={lecture} />
+                    <LectureCard 
+                      lecture={lecture} 
+                      isEditable={canUploadLectures && lecture.professor.id === currentUser.id}
+                    />
                   </div>
                 ))}
               </div>
