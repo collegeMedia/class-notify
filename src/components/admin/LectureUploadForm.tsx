@@ -11,7 +11,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Clock, Upload } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { departments, subjects, users } from "@/lib/data";
+import { departments, semesters, subjects, users } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -45,6 +45,9 @@ const formSchema = z.object({
     message: "Please select a professor.",
   }),
   materials: z.string().optional(),
+  semester: z.string().min(1, {
+    message: "Please select a semester.",
+  }),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -52,11 +55,14 @@ type FormValues = z.infer<typeof formSchema>;
 const LectureUploadForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("");
+  const [selectedSemester, setSelectedSemester] = useState<string>("");
   const { toast } = useToast();
 
-  // Filter subjects based on selected department
+  // Filter subjects based on selected department and semester
   const filteredSubjects = subjects.filter(
-    (subject) => subject.department === selectedDepartment
+    (subject) => 
+      subject.department === selectedDepartment && 
+      (!selectedSemester || subject.semester === selectedSemester)
   );
 
   // Filter users who can be professors (teachers)
@@ -79,6 +85,7 @@ const LectureUploadForm = () => {
       subject: "",
       professorId: "",
       materials: "",
+      semester: "",
     },
   });
 
@@ -88,6 +95,20 @@ const LectureUploadForm = () => {
     form.setValue("department", value);
     form.setValue("subject", ""); // Reset subject when department changes
     form.setValue("professorId", ""); // Reset professor when department changes
+  };
+
+  // Handle semester change to reset subject if needed
+  const handleSemesterChange = (value: string) => {
+    setSelectedSemester(value);
+    form.setValue("semester", value);
+    
+    // Reset subject if it doesn't exist in the new semester
+    const currentSubject = form.getValues("subject");
+    const subjectExists = filteredSubjects.some(subject => subject.name === currentSubject);
+    
+    if (!subjectExists) {
+      form.setValue("subject", "");
+    }
   };
 
   const onSubmit = async (data: FormValues) => {
@@ -100,17 +121,76 @@ const LectureUploadForm = () => {
       // Simulate successful upload
       toast({
         title: "Lecture scheduled",
-        description: `Lecture "${data.title}" has been successfully scheduled.`,
+        description: `Lecture "${data.title}" has been successfully scheduled for ${data.semester}.`,
       });
       
       form.reset();
       setSelectedDepartment("");
+      setSelectedSemester("");
     }, 1500);
   };
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+          <FormField
+            control={form.control}
+            name="department"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Department</FormLabel>
+                <Select
+                  onValueChange={handleDepartmentChange}
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a department" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {departments.map((department) => (
+                      <SelectItem key={department} value={department}>
+                        {department}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          
+          <FormField
+            control={form.control}
+            name="semester"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Semester</FormLabel>
+                <Select
+                  onValueChange={handleSemesterChange}
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a semester" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {semesters.map((semester) => (
+                      <SelectItem key={semester} value={semester}>
+                        {semester}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        
         <FormField
           control={form.control}
           name="title"
@@ -235,34 +315,6 @@ const LectureUploadForm = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
             control={form.control}
-            name="department"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Department</FormLabel>
-                <Select
-                  onValueChange={handleDepartmentChange}
-                  defaultValue={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a department" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {departments.map((department) => (
-                      <SelectItem key={department} value={department}>
-                        {department}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          
-          <FormField
-            control={form.control}
             name="subject"
             render={({ field }) => (
               <FormItem>
@@ -270,11 +322,17 @@ const LectureUploadForm = () => {
                 <Select
                   onValueChange={field.onChange}
                   defaultValue={field.value}
-                  disabled={!selectedDepartment}
+                  disabled={!selectedDepartment || !selectedSemester}
                 >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder={selectedDepartment ? "Select a subject" : "Select a department first"} />
+                      <SelectValue placeholder={
+                        !selectedDepartment 
+                          ? "Select a department first" 
+                          : !selectedSemester 
+                            ? "Select a semester first"
+                            : "Select a subject"
+                      } />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>

@@ -13,6 +13,8 @@ export type Department =
   | "Economics" 
   | "Psychology";
 
+export type Semester = "Fall 2023" | "Spring 2024" | "Summer 2024" | "Fall 2024";
+
 export interface User {
   id: string;
   name: string;
@@ -20,6 +22,8 @@ export interface User {
   role: UserRole;
   department: Department;
   avatar?: string;
+  enrolledSubjects?: string[]; // IDs of subjects student is enrolled in
+  semester?: Semester; // Current semester for student
 }
 
 export interface Announcement {
@@ -30,6 +34,7 @@ export interface Announcement {
   author: User;
   department?: Department; // If undefined, it's for all departments
   important?: boolean;
+  semester?: Semester; // Optional semester relevance
 }
 
 export interface Assignment {
@@ -42,6 +47,7 @@ export interface Assignment {
   subject: string;
   author: User;
   attachments?: string[];
+  semester: Semester; // Which semester this assignment belongs to
 }
 
 export interface Lecture {
@@ -56,6 +62,7 @@ export interface Lecture {
   subject: string;
   professor: User;
   materials?: string[];
+  semester: Semester; // Which semester this lecture belongs to
 }
 
 export interface Subject {
@@ -65,6 +72,9 @@ export interface Subject {
   department: Department;
   professor: User;
   description: string;
+  semester: Semester; // Which semester this subject is offered in
+  credits?: number; // Optional credit hours
+  prerequisites?: string[]; // Optional list of prerequisite subject codes
 }
 
 export interface CurrentUser {

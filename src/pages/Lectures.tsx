@@ -2,13 +2,14 @@
 import { useEffect, useRef, useState } from "react";
 import Layout from "@/components/Layout";
 import LectureCard from "@/components/LectureCard";
-import { currentUser, getTodayLectures, getSubjectsForDepartment } from "@/lib/data";
-import { BookX, Calendar, Clock, Search } from "lucide-react";
+import { currentUser, getTodayLectures, getSubjectsForDepartment, semesters } from "@/lib/data";
+import { BookX, Calendar, Clock, Search, GraduationCap } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Lecture, Subject } from "@/lib/types";
+import { Lecture, Semester, Subject } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const Lectures = () => {
   const animationRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -17,6 +18,7 @@ const Lectures = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("today");
+  const [selectedSemester, setSelectedSemester] = useState<Semester>("Spring 2024"); // Default to current semester
 
   useEffect(() => {
     // Simulate API fetch delay
@@ -25,10 +27,10 @@ const Lectures = () => {
       try {
         // In a real app, these would be API calls
         setTimeout(() => {
-          setTodayLectures(getTodayLectures(currentUser.department));
-          setSubjects(getSubjectsForDepartment(currentUser.department));
+          setTodayLectures(getTodayLectures(currentUser.department, selectedSemester));
+          setSubjects(getSubjectsForDepartment(currentUser.department, selectedSemester));
           setIsLoading(false);
-        }, 1000);
+        }, 800);
       } catch (error) {
         console.error("Error fetching lectures:", error);
         setIsLoading(false);
@@ -36,7 +38,7 @@ const Lectures = () => {
     };
 
     fetchData();
-  }, []);
+  }, [selectedSemester]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -71,11 +73,34 @@ const Lectures = () => {
     subject.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Handle semester change
+  const handleSemesterChange = (value: Semester) => {
+    setSelectedSemester(value);
+    setIsLoading(true);
+  };
+
   return (
     <Layout>
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-3xl font-semibold">Lectures & Subjects</h1>
+          <div className="flex justify-between items-center mb-2">
+            <h1 className="text-3xl font-semibold">Lectures & Subjects</h1>
+            <div className="flex items-center gap-2">
+              <GraduationCap size={18} className="text-muted-foreground" />
+              <Select value={selectedSemester} onValueChange={handleSemesterChange}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Select semester" />
+                </SelectTrigger>
+                <SelectContent>
+                  {semesters.map(semester => (
+                    <SelectItem key={semester} value={semester}>
+                      {semester}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <p className="text-muted-foreground mt-1">
             {new Date().toLocaleDateString('en-US', { 
               weekday: 'long', 
@@ -123,7 +148,7 @@ const Lectures = () => {
                 </div>
                 <h3 className="mt-4 text-xl font-medium">No lectures today</h3>
                 <p className="mt-2 text-center text-muted-foreground max-w-md">
-                  There are no scheduled lectures for your department today.
+                  There are no scheduled lectures for your department today in the {selectedSemester} semester.
                 </p>
               </div>
             )}
@@ -159,6 +184,12 @@ const Lectures = () => {
                           <Badge variant="outline" className="px-2 py-0 text-xs font-medium">
                             {subject.code}
                           </Badge>
+                          <Badge 
+                            variant="secondary" 
+                            className="px-2 py-0 text-xs font-medium"
+                          >
+                            {subject.credits} credits
+                          </Badge>
                         </div>
                         <h3 className="text-lg font-medium mt-2">{subject.name}</h3>
                         <p className="text-sm text-muted-foreground mt-2 line-clamp-3">
@@ -176,6 +207,13 @@ const Lectures = () => {
                         {subject.professor.name}
                       </span>
                     </div>
+                    {subject.prerequisites && subject.prerequisites.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-border">
+                        <div className="text-xs text-muted-foreground">
+                          Prerequisites: {subject.prerequisites.join(", ")}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -183,7 +221,10 @@ const Lectures = () => {
               <div className="flex flex-col items-center justify-center bg-white/50 rounded-2xl p-12 shadow-subtle mb-12">
                 <h3 className="mt-4 text-xl font-medium">No subjects found</h3>
                 <p className="mt-2 text-center text-muted-foreground max-w-md">
-                  Try adjusting your search criteria.
+                  {searchQuery 
+                    ? "Try adjusting your search criteria."
+                    : `No subjects available for ${currentUser.department} in the ${selectedSemester} semester.`
+                  }
                 </p>
               </div>
             )}
