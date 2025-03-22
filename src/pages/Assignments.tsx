@@ -1,19 +1,20 @@
+
 import { useEffect, useRef, useState } from "react";
 import Layout from "@/components/Layout";
 import AssignmentCard from "@/components/AssignmentCard";
-import { currentUser, getAssignmentsForDepartment, semesters } from "@/lib/data";
+import { currentUser, semesters } from "@/lib/data";
 import { ClipboardX, Plus, GraduationCap } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Semester } from "@/lib/types";
+import { Assignment, Semester } from "@/lib/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { getAssignments } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
 
 const Assignments = () => {
   const animationRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [assignments, setAssignments] = useState<any[]>([]);
   const [selectedSemester, setSelectedSemester] = useState<Semester>(
     currentUser.role === "student" && currentUser.semester 
       ? currentUser.semester 
@@ -34,17 +35,10 @@ const Assignments = () => {
     }
   })();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      setTimeout(() => {
-        setAssignments(getAssignmentsForDepartment(currentUser.department, selectedSemester));
-        setIsLoading(false);
-      }, 800);
-    };
-
-    fetchData();
-  }, [selectedSemester]);
+  const { data: assignments, isLoading, refetch } = useQuery({
+    queryKey: ['assignments', currentUser.department, selectedSemester],
+    queryFn: () => getAssignments(currentUser.department, selectedSemester),
+  });
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -59,7 +53,7 @@ const Assignments = () => {
       { threshold: 0.1 }
     );
 
-    if (!isLoading) {
+    if (!isLoading && assignments) {
       animationRefs.current.forEach((ref) => {
         if (ref) observer.observe(ref);
       });
@@ -70,7 +64,7 @@ const Assignments = () => {
         if (ref) observer.unobserve(ref);
       });
     };
-  }, [isLoading]);
+  }, [isLoading, assignments]);
 
   const handleSemesterChange = (value: Semester) => {
     if (currentUser.role === "student" && currentUser.semester !== value) {
@@ -78,7 +72,6 @@ const Assignments = () => {
       return;
     }
     setSelectedSemester(value);
-    setIsLoading(true);
   };
 
   const canUploadAssignments = currentUser.role === "teacher" || 
@@ -151,7 +144,7 @@ const Assignments = () => {
           </div>
         </div>
 
-        {assignments.length > 0 ? (
+        {assignments && assignments.length > 0 ? (
           <div className="space-y-6">
             {assignments.map((assignment, index) => (
               <div 
