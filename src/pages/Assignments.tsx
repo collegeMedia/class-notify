@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from "react";
 import Layout from "@/components/Layout";
 import AssignmentCard from "@/components/AssignmentCard";
@@ -21,18 +20,14 @@ const Assignments = () => {
       : "Spring 2024"
   );
 
-  // Determine available semesters based on user role
   const availableSemesters = (() => {
     switch (currentUser.role) {
       case "student":
-        // Students can only view their enrolled semester
         return currentUser.semester ? [currentUser.semester] : [];
       case "teacher":
-        // Teachers can view semesters they are associated with
         return currentUser.associatedSemesters || semesters;
       case "department_admin":
       case "admin":
-        // Admins can view all semesters
         return semesters;
       default:
         return semesters;
@@ -42,7 +37,6 @@ const Assignments = () => {
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
-      // Simulate API call with timeout
       setTimeout(() => {
         setAssignments(getAssignmentsForDepartment(currentUser.department, selectedSemester));
         setIsLoading(false);
@@ -78,7 +72,6 @@ const Assignments = () => {
     };
   }, [isLoading]);
 
-  // Handle semester change
   const handleSemesterChange = (value: Semester) => {
     if (currentUser.role === "student" && currentUser.semester !== value) {
       toast.error("Students can only view their enrolled semester");
@@ -88,7 +81,6 @@ const Assignments = () => {
     setIsLoading(true);
   };
 
-  // Show upload button for teachers and admins
   const canUploadAssignments = currentUser.role === "teacher" || 
                                currentUser.role === "department_admin" || 
                                currentUser.role === "admin";
