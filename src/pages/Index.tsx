@@ -2,14 +2,19 @@
 import { useEffect, useRef } from "react";
 import Layout from "@/components/Layout";
 import AnnouncementCard from "@/components/AnnouncementCard";
-import { currentUser, getAnnouncementsForDepartment } from "@/lib/data";
-import { Bell, BellOff } from "lucide-react";
+import { currentUser } from "@/lib/data";
+import { BellOff } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getAnnouncements } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
 
 const Index = () => {
   const animationRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const announcements = getAnnouncementsForDepartment(currentUser.department);
-  const isLoading = false; // In a real app, this would be from a data fetching hook
+  
+  const { data: announcements, isLoading } = useQuery({
+    queryKey: ['announcements', currentUser.department],
+    queryFn: () => getAnnouncements(currentUser.department),
+  });
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -24,7 +29,7 @@ const Index = () => {
       { threshold: 0.1 }
     );
 
-    if (!isLoading) {
+    if (!isLoading && announcements) {
       animationRefs.current.forEach((ref) => {
         if (ref) observer.observe(ref);
       });
@@ -35,7 +40,7 @@ const Index = () => {
         if (ref) observer.unobserve(ref);
       });
     };
-  }, [isLoading]);
+  }, [isLoading, announcements]);
 
   if (isLoading) {
     return (
@@ -65,7 +70,7 @@ const Index = () => {
           <h1 className="text-3xl font-semibold">Announcements</h1>
         </div>
 
-        {announcements.length > 0 ? (
+        {announcements && announcements.length > 0 ? (
           <div className="space-y-6">
             {announcements.map((announcement, index) => (
               <div 
