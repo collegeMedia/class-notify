@@ -1,4 +1,3 @@
-
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
@@ -101,6 +100,39 @@ class SubjectCreate(SubjectBase):
 class Subject(SubjectBase):
     id: str
     professor: User
+
+    class Config:
+        orm_mode = True
+
+# ChatGroup schemas
+class ChatGroupBase(BaseModel):
+    name: str
+    subject_id: str
+    semester: str
+
+class ChatGroupCreate(ChatGroupBase):
+    teacher_id: str
+
+class ChatGroup(ChatGroupBase):
+    id: str
+    created_at: datetime
+    teacher: User
+
+    class Config:
+        orm_mode = True
+
+# Message schemas
+class MessageBase(BaseModel):
+    content: str
+    chat_group_id: str
+
+class MessageCreate(MessageBase):
+    sender_id: str
+
+class Message(MessageBase):
+    id: str
+    created_at: datetime
+    sender: User
 
     class Config:
         orm_mode = True

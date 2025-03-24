@@ -1,4 +1,3 @@
-
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Text, DateTime
 from sqlalchemy.orm import relationship
 import datetime
@@ -25,6 +24,8 @@ class User(Base):
     assignments = relationship("Assignment", back_populates="author")
     lectures = relationship("Lecture", back_populates="professor")
     subjects = relationship("Subject", back_populates="professor")
+    messages = relationship("Message", back_populates="sender")
+    chat_groups = relationship("ChatGroup", back_populates="teacher")
 
 class Announcement(Base):
     __tablename__ = "announcements"
@@ -92,3 +93,30 @@ class Subject(Base):
 
     # Relationships
     professor = relationship("User", back_populates="subjects")
+
+class ChatGroup(Base):
+    __tablename__ = "chat_groups"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    name = Column(String, index=True)
+    subject_id = Column(String, ForeignKey("subjects.id"))
+    teacher_id = Column(String, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    semester = Column(String)
+    
+    # Relationships
+    teacher = relationship("User", back_populates="chat_groups")
+    messages = relationship("Message", back_populates="chat_group")
+    
+class Message(Base):
+    __tablename__ = "messages"
+    
+    id = Column(String, primary_key=True, default=generate_uuid)
+    content = Column(Text)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    sender_id = Column(String, ForeignKey("users.id"))
+    chat_group_id = Column(String, ForeignKey("chat_groups.id"))
+    
+    # Relationships
+    sender = relationship("User", back_populates="messages")
+    chat_group = relationship("ChatGroup", back_populates="messages")

@@ -1,7 +1,7 @@
 
 import { cn } from "@/lib/utils";
 import { User } from "@/lib/types";
-import { Bell, Book, ClipboardList, LogOut, Menu, X } from "lucide-react";
+import { Bell, Book, ClipboardList, LogOut, Menu, MessageSquare, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 
@@ -33,6 +33,11 @@ const Header = ({ user }: HeaderProps) => {
       label: "Lectures",
       href: "/lectures",
       icon: <Book size={18} />,
+    },
+    {
+      label: "Chat Groups",
+      href: "/chat-groups",
+      icon: <MessageSquare size={18} />,
     },
   ];
 

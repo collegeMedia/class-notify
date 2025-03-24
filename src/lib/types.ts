@@ -79,6 +79,24 @@ export interface Subject {
   prerequisites?: string[]; // Optional list of prerequisite subject codes
 }
 
+export interface ChatGroup {
+  id: string;
+  name: string;
+  subjectId: string;
+  teacherId: string;
+  semester: Semester;
+  createdAt: string;
+  teacher: User;
+}
+
+export interface Message {
+  id: string;
+  content: string;
+  sender: User;
+  chatGroupId: string;
+  createdAt: string;
+}
+
 export interface CurrentUser {
   user: User | null;
   isLoading: boolean;

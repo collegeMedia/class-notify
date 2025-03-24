@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -113,3 +112,39 @@ def read_announcements(
 ):
     announcements = crud.get_announcements(db, skip=skip, limit=limit, department=department)
     return announcements
+
+# ChatGroup endpoints
+@app.post("/chat-groups/", response_model=schemas.ChatGroup)
+def create_chat_group(chat_group: schemas.ChatGroupCreate, db: Session = Depends(get_db)):
+    return crud.create_chat_group(db=db, chat_group=chat_group)
+
+@app.get("/chat-groups/teacher/{teacher_id}", response_model=List[schemas.ChatGroup])
+def read_teacher_chat_groups(teacher_id: str, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    chat_groups = crud.get_chat_groups_for_teacher(db, teacher_id=teacher_id, skip=skip, limit=limit)
+    return chat_groups
+
+@app.get("/chat-groups/student/{student_id}", response_model=List[schemas.ChatGroup])
+def read_student_chat_groups(student_id: str, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    student = crud.get_user(db, user_id=student_id)
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+        
+    chat_groups = crud.get_chat_groups_for_student(db, student_id=student_id, semester=student.semester, skip=skip, limit=limit)
+    return chat_groups
+
+@app.get("/chat-groups/{chat_group_id}", response_model=schemas.ChatGroup)
+def read_chat_group(chat_group_id: str, db: Session = Depends(get_db)):
+    db_chat_group = crud.get_chat_group(db, chat_group_id=chat_group_id)
+    if db_chat_group is None:
+        raise HTTPException(status_code=404, detail="Chat group not found")
+    return db_chat_group
+
+# Message endpoints
+@app.post("/messages/", response_model=schemas.Message)
+def create_message(message: schemas.MessageCreate, db: Session = Depends(get_db)):
+    return crud.create_message(db=db, message=message)
+
+@app.get("/messages/{chat_group_id}", response_model=List[schemas.Message])
+def read_messages(chat_group_id: str, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    messages = crud.get_messages(db, chat_group_id=chat_group_id, skip=skip, limit=limit)
+    return messages

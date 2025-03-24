@@ -1,5 +1,4 @@
-
-import { Announcement, Assignment, Department, Lecture, Semester, Subject, User } from "./types";
+import { Announcement, Assignment, ChatGroup, Department, Lecture, Message, Semester, Subject, User } from "./types";
 
 const API_URL = "http://localhost:8000";
 
@@ -120,5 +119,46 @@ export const createAnnouncement = (
   return fetchAPI<Announcement>("/announcements/", {
     method: "POST",
     body: JSON.stringify(announcement),
+  });
+};
+
+// ChatGroup related API calls
+export const getChatGroupsForTeacher = (teacherId: string): Promise<ChatGroup[]> => {
+  return fetchAPI<ChatGroup[]>(`/chat-groups/teacher/${teacherId}`);
+};
+
+export const getChatGroupsForStudent = (studentId: string): Promise<ChatGroup[]> => {
+  return fetchAPI<ChatGroup[]>(`/chat-groups/student/${studentId}`);
+};
+
+export const getChatGroupById = (id: string): Promise<ChatGroup> => {
+  return fetchAPI<ChatGroup>(`/chat-groups/${id}`);
+};
+
+export const createChatGroup = (chatGroup: {
+  name: string;
+  subject_id: string;
+  teacher_id: string;
+  semester: Semester;
+}): Promise<ChatGroup> => {
+  return fetchAPI<ChatGroup>("/chat-groups/", {
+    method: "POST",
+    body: JSON.stringify(chatGroup),
+  });
+};
+
+// Message related API calls
+export const getMessages = (chatGroupId: string): Promise<Message[]> => {
+  return fetchAPI<Message[]>(`/messages/${chatGroupId}`);
+};
+
+export const createMessage = (message: {
+  content: string;
+  sender_id: string;
+  chat_group_id: string;
+}): Promise<Message> => {
+  return fetchAPI<Message>("/messages/", {
+    method: "POST",
+    body: JSON.stringify(message),
   });
 };

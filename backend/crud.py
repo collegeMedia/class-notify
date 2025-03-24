@@ -1,4 +1,3 @@
-
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 import models, schemas
@@ -181,3 +180,54 @@ def create_announcement(db: Session, announcement: schemas.AnnouncementCreate):
     db.commit()
     db.refresh(db_announcement)
     return db_announcement
+
+# ChatGroup operations
+def get_chat_group(db: Session, chat_group_id: str):
+    return db.query(models.ChatGroup).filter(models.ChatGroup.id == chat_group_id).first()
+
+def get_chat_groups_for_teacher(db: Session, teacher_id: str, skip: int = 0, limit: int = 100):
+    return db.query(models.ChatGroup).filter(models.ChatGroup.teacher_id == teacher_id).offset(skip).limit(limit).all()
+
+def get_chat_groups_for_student(db: Session, student_id: str, semester: str, skip: int = 0, limit: int = 100):
+    # Logic: Find subjects that this student should be part of based on their department and semester
+    student = db.query(models.User).filter(models.User.id == student_id).first()
+    
+    if not student:
+        return []
+    
+    # Find chat groups for subjects in the student's department and semester
+    return db.query(models.ChatGroup).join(
+        models.Subject, models.ChatGroup.subject_id == models.Subject.id
+    ).filter(
+        models.Subject.department == student.department,
+        models.ChatGroup.semester == student.semester
+    ).offset(skip).limit(limit).all()
+
+def create_chat_group(db: Session, chat_group: schemas.ChatGroupCreate):
+    db_chat_group = models.ChatGroup(
+        name=chat_group.name,
+        subject_id=chat_group.subject_id,
+        teacher_id=chat_group.teacher_id,
+        semester=chat_group.semester
+    )
+    db.add(db_chat_group)
+    db.commit()
+    db.refresh(db_chat_group)
+    return db_chat_group
+
+# Message operations
+def get_messages(db: Session, chat_group_id: str, skip: int = 0, limit: int = 100):
+    return db.query(models.Message).filter(
+        models.Message.chat_group_id == chat_group_id
+    ).order_by(models.Message.created_at).offset(skip).limit(limit).all()
+
+def create_message(db: Session, message: schemas.MessageCreate):
+    db_message = models.Message(
+        content=message.content,
+        sender_id=message.sender_id,
+        chat_group_id=message.chat_group_id
+    )
+    db.add(db_message)
+    db.commit()
+    db.refresh(db_message)
+    return db_message
