@@ -8,7 +8,7 @@ import { currentUser } from "@/lib/data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { LoadingSpinner } from "@/components/LoadingSpinner";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { format } from "date-fns";
 import { Send } from "lucide-react";
 import { toast } from "sonner";
