@@ -1,9 +1,10 @@
 
 import { cn } from "@/lib/utils";
 import { User } from "@/lib/types";
-import { Bell, Book, ClipboardList, LogOut, Menu, MessageSquare, X } from "lucide-react";
+import { LogOut, Menu, X, Bell, ClipboardList, Book, MessageSquare } from "lucide-react";
 import { useState, useEffect } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { logoutCurrentUser } from "@/lib/data";
 
 interface HeaderProps {
   user: User | null;
@@ -12,8 +13,8 @@ interface HeaderProps {
 const Header = ({ user }: HeaderProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
-  // Close mobile menu when route changes
   useEffect(() => {
     setIsOpen(false);
   }, [location.pathname]);
@@ -40,6 +41,11 @@ const Header = ({ user }: HeaderProps) => {
       icon: <MessageSquare size={18} />,
     },
   ];
+
+  const handleLogout = () => {
+    logoutCurrentUser();
+    navigate("/login");
+  };
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/40 bg-white/80 backdrop-blur-md">
@@ -83,7 +89,7 @@ const Header = ({ user }: HeaderProps) => {
 
         {/* User Menu */}
         <div className="hidden md:flex items-center space-x-4">
-          {user && (
+          {user && user.name ? (
             <div className="flex items-center space-x-2">
               {user.avatar ? (
                 <img
@@ -105,8 +111,12 @@ const Header = ({ user }: HeaderProps) => {
                 </span>
               </div>
             </div>
-          )}
-          <button className="p-2 rounded-full hover:bg-secondary transition-colors">
+          ) : null}
+          <button
+            className="p-2 rounded-full hover:bg-secondary transition-colors"
+            onClick={handleLogout}
+            title="Logout"
+          >
             <LogOut size={18} />
           </button>
         </div>
@@ -136,7 +146,7 @@ const Header = ({ user }: HeaderProps) => {
               ))}
             </nav>
 
-            {user && (
+            {user && user.name && (
               <div className="flex items-center justify-between border-t border-border pt-4 mt-4">
                 <div className="flex items-center space-x-2">
                   {user.avatar ? (
@@ -159,7 +169,11 @@ const Header = ({ user }: HeaderProps) => {
                     </span>
                   </div>
                 </div>
-                <button className="p-2 rounded-full hover:bg-secondary transition-colors">
+                <button
+                  className="p-2 rounded-full hover:bg-secondary transition-colors"
+                  onClick={handleLogout}
+                  title="Logout"
+                >
                   <LogOut size={18} />
                 </button>
               </div>

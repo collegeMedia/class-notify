@@ -1,8 +1,8 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LockIcon, MailIcon, UserIcon, ShieldIcon } from "lucide-react";
-import { currentUser } from "@/lib/data";
+import { LockIcon, MailIcon, ShieldIcon } from "lucide-react";
+import { currentUser, setCurrentUser } from "@/lib/data";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -16,28 +16,36 @@ const Login = () => {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
-    // Simulating a login delay
+
     setTimeout(() => {
-      // In a real app, this would validate credentials
       setLoading(false);
-      
-      // Set user as admin if the switch is toggled
-      if (isAdmin) {
-        // Override the currentUser object with admin role
-        Object.assign(currentUser, {
-          ...currentUser,
-          role: "admin",
-          name: "Admin User",
-          email: "admin@university.edu",
-        });
-        
-        toast({
-          title: "Admin Login Successful",
-          description: "You've been logged in with admin privileges.",
-        });
-      }
-      
+
+      // Simulate user info
+      const user = isAdmin
+        ? {
+            id: "admin-id",
+            name: "Admin User",
+            email: "admin@university.edu",
+            role: "admin",
+            department: "Computer Science",
+            semester: "Spring 2024",
+          }
+        : {
+            id: "1",
+            name: "John Doe",
+            email: "john.doe@university.edu",
+            role: "student",
+            department: "Computer Science",
+            semester: "Spring 2024",
+          };
+
+      setCurrentUser(user);
+      toast({
+        title: isAdmin ? "Admin Login Successful" : "Login Successful",
+        description: isAdmin
+          ? "You've been logged in with admin privileges."
+          : "Welcome to the student portal.",
+      });
       navigate("/");
     }, 1500);
   };
@@ -64,7 +72,7 @@ const Login = () => {
               <input
                 id="email"
                 type="email"
-                defaultValue={currentUser.email}
+                defaultValue="john.doe@university.edu"
                 className="glass-input pl-10 w-full py-2"
                 placeholder="you@university.edu"
                 required
