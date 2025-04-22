@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { LockIcon, MailIcon, ShieldIcon } from "lucide-react";
@@ -7,6 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { User, UserRole, Department } from "@/lib/types";
+import { Button } from "@/components/ui/button";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -22,15 +22,12 @@ const Login = () => {
     setFormState({ ...formState, [e.target.name]: e.target.value });
   };
 
-  // Helper to get the user via API and optionally filter by role (if admin toggle is set).
   async function fetchUser(email: string, role?: UserRole) {
     try {
-      // Call FastAPI backend to get all users
       const response = await fetch("http://localhost:8000/users/");
       if (!response.ok) throw new Error("Failed to fetch users");
       const users: User[] = await response.json();
 
-      // Find the user with the matching email (and optionally role)
       return users.find((u) =>
         u.email === email && (role ? u.role === role : true)
       );
@@ -43,10 +40,8 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
 
-    // Determine expected role
     const roleToCheck = isAdmin ? "admin" : undefined;
 
-    // Fetch user from backend with given email and required role
     const user = await fetchUser(formState.email, roleToCheck as UserRole);
 
     setLoading(false);
@@ -63,10 +58,32 @@ const Login = () => {
     } else {
       toast({
         title: "Login Failed",
-        description:
-          isAdmin
-            ? "No admin user found with that email."
-            : "Incorrect email or not registered.",
+        description: (
+          <span>
+            {isAdmin
+              ? "No admin user found with that email."
+              : (
+                <>
+                  User not found.{" "}
+                  <a
+                    className="text-primary underline font-bold"
+                    href="#"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      toast({
+                        title: "Registration",
+                        description: "Please contact admin to register.",
+                        variant: "default"
+                      });
+                    }}
+                  >
+                    Register now
+                  </a>
+                </>
+              )
+            }
+          </span>
+        ),
         variant: "destructive",
       });
     }
@@ -196,4 +213,3 @@ const Login = () => {
 };
 
 export default Login;
-
