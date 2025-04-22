@@ -2,44 +2,56 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { LockIcon, MailIcon, ShieldIcon } from "lucide-react";
-import { currentUser, setCurrentUser } from "@/lib/data";
+import { setCurrentUser } from "@/lib/data";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { UserRole } from "@/lib/types";
+import { User, UserRole, Department } from "@/lib/types";
 
 const Login = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const { toast } = useToast();
+  const [formState, setFormState] = useState({
+    email: "john.doe@university.edu",
+    password: "password123",
+  });
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormState({ ...formState, [e.target.name]: e.target.value });
+  };
+
+  // Helper to get the user via API and optionally filter by role (if admin toggle is set).
+  async function fetchUser(email: string, role?: UserRole) {
+    try {
+      // Call FastAPI backend to get all users
+      const response = await fetch("http://localhost:8000/users/");
+      if (!response.ok) throw new Error("Failed to fetch users");
+      const users: User[] = await response.json();
+
+      // Find the user with the matching email (and optionally role)
+      return users.find((u) =>
+        u.email === email && (role ? u.role === role : true)
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    setTimeout(() => {
-      setLoading(false);
+    // Determine expected role
+    const roleToCheck = isAdmin ? "admin" : undefined;
 
-      // Simulate user info with correct UserRole type
-      const user = isAdmin
-        ? {
-            id: "admin-id",
-            name: "Admin User",
-            email: "admin@university.edu",
-            role: "admin" as UserRole,
-            department: "Computer Science",
-            semester: "Spring 2024",
-          }
-        : {
-            id: "1",
-            name: "John Doe",
-            email: "john.doe@university.edu",
-            role: "student" as UserRole,
-            department: "Computer Science",
-            semester: "Spring 2024",
-          };
+    // Fetch user from backend with given email and required role
+    const user = await fetchUser(formState.email, roleToCheck as UserRole);
 
+    setLoading(false);
+
+    if (user) {
       setCurrentUser(user);
       toast({
         title: isAdmin ? "Admin Login Successful" : "Login Successful",
@@ -48,7 +60,16 @@ const Login = () => {
           : "Welcome to the student portal.",
       });
       navigate("/");
-    }, 1500);
+    } else {
+      toast({
+        title: "Login Failed",
+        description:
+          isAdmin
+            ? "No admin user found with that email."
+            : "Incorrect email or not registered.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -72,8 +93,10 @@ const Login = () => {
               <MailIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
               <input
                 id="email"
+                name="email"
                 type="email"
-                defaultValue="john.doe@university.edu"
+                value={formState.email}
+                onChange={handleChange}
                 className="glass-input pl-10 w-full py-2"
                 placeholder="you@university.edu"
                 required
@@ -89,8 +112,10 @@ const Login = () => {
               <LockIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
               <input
                 id="password"
+                name="password"
                 type="password"
-                defaultValue="password123"
+                value={formState.password}
+                onChange={handleChange}
                 className="glass-input pl-10 w-full py-2"
                 placeholder="••••••••"
                 required
@@ -171,3 +196,4 @@ const Login = () => {
 };
 
 export default Login;
+
