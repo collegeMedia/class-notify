@@ -6,6 +6,7 @@ import { currentUser, setCurrentUser } from "@/lib/data";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { UserRole } from "@/lib/types";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -20,13 +21,13 @@ const Login = () => {
     setTimeout(() => {
       setLoading(false);
 
-      // Simulate user info
+      // Simulate user info with correct UserRole type
       const user = isAdmin
         ? {
             id: "admin-id",
             name: "Admin User",
             email: "admin@university.edu",
-            role: "admin",
+            role: "admin" as UserRole,
             department: "Computer Science",
             semester: "Spring 2024",
           }
@@ -34,7 +35,7 @@ const Login = () => {
             id: "1",
             name: "John Doe",
             email: "john.doe@university.edu",
-            role: "student",
+            role: "student" as UserRole,
             department: "Computer Science",
             semester: "Spring 2024",
           };
