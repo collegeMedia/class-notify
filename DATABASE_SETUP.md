@@ -34,8 +34,26 @@ docker-compose logs postgres
 Your backend is already configured to connect to this database using the connection string in `backend/.env`:
 
 ```
-DATABASE_URL=postgresql://postgres:password@localhost:5432/university
+DATABASE_URL=postgresql://postgres:password@localhost:5436/university
 ```
+
+## Database Migrations
+
+Database schema is managed using Alembic migrations. After starting PostgreSQL:
+
+1. **Apply all migrations** (creates tables):
+```bash
+cd backend
+source venv/bin/activate
+alembic upgrade head
+```
+
+2. **Check current migration status**:
+```bash
+alembic current
+```
+
+For more details on creating and managing migrations, see [`backend/MIGRATIONS.md`](backend/MIGRATIONS.md)
 
 ## Useful Commands
 
