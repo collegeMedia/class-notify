@@ -1,10 +1,10 @@
-
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getChatGroupById, getMessages, createMessage } from "@/lib/api";
 import { currentUser } from "@/lib/data";
+import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,8 +29,19 @@ const ChatRoom = () => {
     queryKey: ['messages', groupId],
     queryFn: () => getMessages(groupId!),
     enabled: !!groupId,
-    refetchInterval: 5000, // Poll for new messages every 5 seconds
   });
+
+  // Realtime subscription for new messages
+  useEffect(() => {
+    if (!groupId) return;
+    const channel = supabase
+      .channel(`messages:${groupId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `chat_group_id=eq.${groupId}` },
+        () => { queryClient.invalidateQueries({ queryKey: ['messages', groupId] }); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [groupId, queryClient]);
 
   const sendMessageMutation = useMutation({
     mutationFn: createMessage,

@@ -5,8 +5,7 @@ import { setCurrentUser } from "@/lib/data";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { User, UserRole, Department } from "@/lib/types";
-import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -14,79 +13,99 @@ const Login = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const { toast } = useToast();
   const [formState, setFormState] = useState({
-    email: "john.doe@university.edu",
-    password: "password123",
+    email: "",
+    password: "",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormState({ ...formState, [e.target.name]: e.target.value });
   };
 
-  async function fetchUser(email: string, role?: UserRole) {
-    try {
-      const response = await fetch("http://localhost:8000/users/");
-      if (!response.ok) throw new Error("Failed to fetch users");
-      const users: User[] = await response.json();
-
-      return users.find((u) =>
-        u.email === email && (role ? u.role === role : true)
-      );
-    } catch {
-      return null;
-    }
-  }
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    const roleToCheck = isAdmin ? "admin" : undefined;
+    // Sign in with Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email: formState.email,
+      password: formState.password,
+    });
 
-    const user = await fetchUser(formState.email, roleToCheck as UserRole);
-
-    setLoading(false);
-
-    if (user) {
-      setCurrentUser(user);
-      toast({
-        title: isAdmin ? "Admin Login Successful" : "Login Successful",
-        description: isAdmin
-          ? "You've been logged in with admin privileges."
-          : "Welcome to the student portal.",
-      });
-      navigate("/");
-    } else {
+    if (authError || !authData.user) {
+      setLoading(false);
       toast({
         title: "Login Failed",
         description: (
           <span>
-            {isAdmin
-              ? "No admin user found with that email."
-              : (
-                <>
-                  User not found.{" "}
-                  <a
-                    className="text-primary underline font-bold"
-                    href="#"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      toast({
-                        title: "Registration",
-                        description: "Please contact admin to register.",
-                        variant: "default"
-                      });
-                    }}
-                  >
-                    Register now
-                  </a>
-                </>
-              )
-            }
+            User not found or invalid password.{" "}
+            <a
+              className="text-primary underline font-bold"
+              href="#"
+              onClick={(event) => {
+                event.preventDefault();
+                toast({
+                  title: "Registration",
+                  description: "Please contact your administrator to register an account.",
+                  variant: "default",
+                });
+              }}
+            >
+              Register now
+            </a>
           </span>
         ),
         variant: "destructive",
       });
+      return;
     }
+
+    // Fetch the user's profile
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", authData.user.id)
+      .single();
+
+    setLoading(false);
+
+    if (profileError || !profile) {
+      toast({
+        title: "Login Failed",
+        description: "Could not load user profile. Please contact support.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check admin role if admin toggle is enabled
+    if (isAdmin && profile.role !== "admin") {
+      await supabase.auth.signOut();
+      toast({
+        title: "Access Denied",
+        description: "No admin privileges found for this account.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCurrentUser({
+      id: profile.id,
+      name: profile.name,
+      email: profile.email,
+      role: profile.role,
+      department: profile.department,
+      avatar: profile.avatar ?? undefined,
+      semester: profile.semester ?? undefined,
+    });
+
+    toast({
+      title: isAdmin ? "Admin Login Successful" : "Login Successful",
+      description: isAdmin
+        ? "You've been logged in with admin privileges."
+        : `Welcome back, ${profile.name}!`,
+    });
+
+    navigate("/");
   };
 
   return (
@@ -138,23 +157,6 @@ const Login = () => {
                 required
               />
             </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <input
-                id="remember"
-                type="checkbox"
-                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                defaultChecked
-              />
-              <label htmlFor="remember" className="ml-2 text-sm text-muted-foreground">
-                Remember me
-              </label>
-            </div>
-            <a href="#" className="text-sm text-primary hover:text-primary/80 transition-colors">
-              Forgot password?
-            </a>
           </div>
 
           <div className="flex items-center space-x-2 py-2">
