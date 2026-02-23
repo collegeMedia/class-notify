@@ -11,10 +11,12 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Upload } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { departments, subjects } from "@/lib/data";
+import { subjects, semesters, currentUser } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useDepartments } from "@/hooks/use-departments";
+import { createAssignment } from "@/lib/api";
 
 const formSchema = z.object({
   title: z.string().min(3, {
@@ -32,6 +34,9 @@ const formSchema = z.object({
   subject: z.string().min(1, {
     message: "Please select a subject.",
   }),
+  semester: z.string().min(1, {
+    message: "Please select a semester.",
+  }),
   attachments: z.string().optional(),
 });
 
@@ -40,7 +45,9 @@ type FormValues = z.infer<typeof formSchema>;
 const AssignmentUploadForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("");
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("");
   const { toast } = useToast();
+  const { departments, isLoading: isDepartmentsLoading } = useDepartments();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -50,6 +57,7 @@ const AssignmentUploadForm = () => {
       dueDate: undefined,
       department: "",
       subject: "",
+      semester: "",
       attachments: "",
     },
   });
@@ -61,19 +69,29 @@ const AssignmentUploadForm = () => {
 
   // Handle department change to reset subject field
   const handleDepartmentChange = (value: string) => {
-    setSelectedDepartment(value);
-    form.setValue("department", value);
-    form.setValue("subject", ""); // Reset subject when department changes
+    const dept = departments.find(d => d.code === value);
+    setSelectedDepartment(dept?.name || value);
+    setSelectedDepartmentId(dept?.id || "");
+    form.setValue("department", dept?.code || value);
+    form.setValue("subject", "");
   };
 
   const onSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
     
-    // Simulate API call with a timeout
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      await createAssignment({
+        title: data.title,
+        description: data.description,
+        dueDate: format(data.dueDate, "yyyy-MM-dd"),
+        department: data.department,
+        department_id: selectedDepartmentId || undefined,
+        subject: data.subject,
+        author: currentUser,
+        semester: data.semester,
+        attachments: data.attachments ? data.attachments.split(",").map(a => a.trim()) : undefined,
+      });
       
-      // Simulate successful upload
       toast({
         title: "Assignment created",
         description: `Assignment "${data.title}" has been successfully created.`,
@@ -81,7 +99,16 @@ const AssignmentUploadForm = () => {
       
       form.reset();
       setSelectedDepartment("");
-    }, 1500);
+      setSelectedDepartmentId("");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create assignment",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -168,16 +195,17 @@ const AssignmentUploadForm = () => {
                 <Select
                   onValueChange={handleDepartmentChange}
                   defaultValue={field.value}
+                  disabled={isDepartmentsLoading}
                 >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a department" />
+                      <SelectValue placeholder={isDepartmentsLoading ? "Loading..." : "Select a department"} />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
                     {departments.map((department) => (
-                      <SelectItem key={department} value={department}>
-                        {department}
+                      <SelectItem key={department.id} value={department.code}>
+                        {department.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -207,6 +235,34 @@ const AssignmentUploadForm = () => {
                     {filteredSubjects.map((subject) => (
                       <SelectItem key={subject.id} value={subject.name}>
                         {subject.name} ({subject.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="semester"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Semester</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a semester" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {semesters.map((semester) => (
+                      <SelectItem key={semester} value={semester}>
+                        {semester}
                       </SelectItem>
                     ))}
                   </SelectContent>

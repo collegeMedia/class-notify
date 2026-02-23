@@ -7,9 +7,8 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { users } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
+import { createDepartment } from "@/lib/api";
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -18,12 +17,7 @@ const formSchema = z.object({
   code: z.string().min(2, {
     message: "Department code must be at least 2 characters.",
   }),
-  description: z.string().min(10, {
-    message: "Description must be at least 10 characters.",
-  }),
-  headId: z.string().min(1, {
-    message: "Please select a department head.",
-  }),
+  description: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -105,7 +99,7 @@ const DepartmentUploadForm = () => {
           name="description"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Department Description</FormLabel>
+              <FormLabel>Department Description (Optional)</FormLabel>
               <FormControl>
                 <Textarea 
                   placeholder="Enter a description for this department..."
@@ -113,33 +107,8 @@ const DepartmentUploadForm = () => {
                   {...field} 
                 />
               </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
-        <FormField
-          control={form.control}
-          name="headId"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Department Head</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a department head" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {eligibleHeads.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.name} ({user.role})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
               <FormDescription>
-                The person who will manage this department
+                A brief description of the department
               </FormDescription>
               <FormMessage />
             </FormItem>

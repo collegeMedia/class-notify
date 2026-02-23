@@ -15,17 +15,27 @@ export type Department =
 
 export type Semester = "Fall 2023" | "Spring 2024" | "Summer 2024" | "Fall 2024";
 
+export interface DepartmentModel {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  created_at: string;
+}
+
 export interface User {
   id: string;
   name: string;
   email: string;
   role: UserRole;
-  department: Department;
+  department: Department | string;
+  department_id?: string;
   avatar?: string;
   enrolledSubjects?: string[]; // IDs of subjects student is enrolled in
   semester?: Semester; // Current semester for student
   teachingSubjects?: string[]; // IDs of subjects the teacher is teaching
   associatedSemesters?: Semester[]; // Semesters the teacher or department admin is associated with
+  created_at?: string;
 }
 
 export interface Announcement {
@@ -33,8 +43,11 @@ export interface Announcement {
   title: string;
   content: string;
   createdAt: string;
+  created_at?: string;
   author: User;
-  department?: Department; // If undefined, it's for all departments
+  author_id?: string;
+  department?: Department | string; // If undefined, it's for all departments
+  department_id?: string;
   important?: boolean;
   semester?: Semester; // Optional semester relevance
 }
@@ -44,12 +57,16 @@ export interface Assignment {
   title: string;
   description: string;
   dueDate: string;
+  due_date?: string;
   createdAt: string;
-  department: Department;
+  created_at?: string;
+  department: Department | string;
+  department_id?: string;
   subject: string;
   author: User;
+  author_id?: string;
   attachments?: string[];
-  semester: Semester; // Which semester this assignment belongs to
+  semester: Semester | string; // Which semester this assignment belongs to
 }
 
 export interface Lecture {
@@ -58,23 +75,29 @@ export interface Lecture {
   description: string;
   date: string;
   startTime: string;
+  start_time?: string;
   endTime: string;
+  end_time?: string;
   location: string;
-  department: Department;
+  department: Department | string;
+  department_id?: string;
   subject: string;
   professor: User;
+  professor_id?: string;
   materials?: string[];
-  semester: Semester; // Which semester this lecture belongs to
+  semester: Semester | string; // Which semester this lecture belongs to
 }
 
 export interface Subject {
   id: string;
   name: string;
   code: string;
-  department: Department;
+  department: Department | string;
+  department_id?: string;
   professor: User;
+  professor_id?: string;
   description: string;
-  semester: Semester; // Which semester this subject is offered in
+  semester: Semester | string; // Which semester this subject is offered in
   credits?: number; // Optional credit hours
   prerequisites?: string[]; // Optional list of prerequisite subject codes
 }

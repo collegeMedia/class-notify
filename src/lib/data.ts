@@ -11,7 +11,7 @@ export const semesters: Semester[] = [
   "Fall 2024"
 ];
 
-// Available departments in the system
+// Available departments in the system (legacy - use useDepartments hook for API data)
 export const departments: Department[] = [
   "Computer Science",
   "Electrical Engineering",
@@ -24,6 +24,20 @@ export const departments: Department[] = [
   "Economics",
   "Psychology"
 ];
+
+// Map department codes to names for backward compatibility
+export const departmentCodeToName: Record<string, string> = {
+  "CS": "Computer Science",
+  "EE": "Electrical Engineering",
+  "ME": "Mechanical Engineering",
+  "BIO": "Biology",
+  "CHEM": "Chemistry",
+  "MATH": "Mathematics",
+  "PHY": "Physics",
+  "BUS": "Business",
+  "ECON": "Economics",
+  "PSY": "Psychology",
+};
 
 // Mock subjects data
 export const subjects = [

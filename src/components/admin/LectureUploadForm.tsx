@@ -11,10 +11,12 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Clock, Upload } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { departments, semesters, subjects, users } from "@/lib/data";
+import { semesters, subjects, users } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useDepartments } from "@/hooks/use-departments";
+import { createLecture } from "@/lib/api";
 
 const formSchema = z.object({
   title: z.string().min(3, {
@@ -55,8 +57,10 @@ type FormValues = z.infer<typeof formSchema>;
 const LectureUploadForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("");
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("");
   const [selectedSemester, setSelectedSemester] = useState<string>("");
   const { toast } = useToast();
+  const { departments, isLoading: isDepartmentsLoading } = useDepartments();
 
   // Filter subjects based on selected department and semester
   const filteredSubjects = subjects.filter(
@@ -91,10 +95,12 @@ const LectureUploadForm = () => {
 
   // Handle department change to reset dependent fields
   const handleDepartmentChange = (value: string) => {
-    setSelectedDepartment(value);
-    form.setValue("department", value);
-    form.setValue("subject", ""); // Reset subject when department changes
-    form.setValue("professorId", ""); // Reset professor when department changes
+    const dept = departments.find(d => d.code === value);
+    setSelectedDepartment(dept?.name || value);
+    setSelectedDepartmentId(dept?.id || "");
+    form.setValue("department", dept?.code || value);
+    form.setValue("subject", "");
+    form.setValue("professorId", "");
   };
 
   // Handle semester change to reset subject if needed
@@ -102,7 +108,6 @@ const LectureUploadForm = () => {
     setSelectedSemester(value);
     form.setValue("semester", value);
     
-    // Reset subject if it doesn't exist in the new semester
     const currentSubject = form.getValues("subject");
     const subjectExists = filteredSubjects.some(subject => subject.name === currentSubject);
     
@@ -114,11 +119,22 @@ const LectureUploadForm = () => {
   const onSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
     
-    // Simulate API call with a timeout
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      await createLecture({
+        title: data.title,
+        description: data.description,
+        date: format(data.date, "yyyy-MM-dd"),
+        startTime: data.startTime,
+        endTime: data.endTime,
+        location: data.location,
+        department: data.department,
+        department_id: selectedDepartmentId || undefined,
+        subject: data.subject,
+        professor: users.find(u => u.id === data.professorId)!,
+        materials: data.materials ? data.materials.split(",").map(m => m.trim()) : undefined,
+        semester: data.semester,
+      });
       
-      // Simulate successful upload
       toast({
         title: "Lecture scheduled",
         description: `Lecture "${data.title}" has been successfully scheduled for ${data.semester}.`,
@@ -126,8 +142,17 @@ const LectureUploadForm = () => {
       
       form.reset();
       setSelectedDepartment("");
+      setSelectedDepartmentId("");
       setSelectedSemester("");
-    }, 1500);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to schedule lecture",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -143,16 +168,17 @@ const LectureUploadForm = () => {
                 <Select
                   onValueChange={handleDepartmentChange}
                   defaultValue={field.value}
+                  disabled={isDepartmentsLoading}
                 >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a department" />
+                      <SelectValue placeholder={isDepartmentsLoading ? "Loading..." : "Select a department"} />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
                     {departments.map((department) => (
-                      <SelectItem key={department} value={department}>
-                        {department}
+                      <SelectItem key={department.id} value={department.code}>
+                        {department.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
