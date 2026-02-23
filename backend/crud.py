@@ -4,6 +4,30 @@ import models, schemas
 import json
 from typing import Optional, List
 
+# Department operations
+def get_department(db: Session, department_id: str):
+    return db.query(models.Department).filter(models.Department.id == department_id).first()
+
+def get_department_by_code(db: Session, code: str):
+    return db.query(models.Department).filter(models.Department.code == code).first()
+
+def get_department_by_name(db: Session, name: str):
+    return db.query(models.Department).filter(models.Department.name == name).first()
+
+def get_departments(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(models.Department).offset(skip).limit(limit).all()
+
+def create_department(db: Session, department: schemas.DepartmentCreate):
+    db_department = models.Department(
+        name=department.name,
+        code=department.code,
+        description=department.description
+    )
+    db.add(db_department)
+    db.commit()
+    db.refresh(db_department)
+    return db_department
+
 # User operations
 def get_user(db: Session, user_id: str):
     return db.query(models.User).filter(models.User.id == user_id).first()
@@ -20,6 +44,7 @@ def create_user(db: Session, user: schemas.UserCreate):
         email=user.email,
         role=user.role,
         department=user.department,
+        department_id=user.department_id,
         avatar=user.avatar,
         semester=user.semester
     )
@@ -55,6 +80,7 @@ def create_assignment(db: Session, assignment: schemas.AssignmentCreate):
         description=assignment.description,
         due_date=assignment.due_date,
         department=assignment.department,
+        department_id=assignment.department_id,
         subject=assignment.subject,
         author_id=assignment.author_id,
         attachments=assignment.attachments,
@@ -99,6 +125,7 @@ def create_lecture(db: Session, lecture: schemas.LectureCreate):
         end_time=lecture.end_time,
         location=lecture.location,
         department=lecture.department,
+        department_id=lecture.department_id,
         subject=lecture.subject,
         professor_id=lecture.professor_id,
         materials=lecture.materials,
@@ -135,6 +162,7 @@ def create_subject(db: Session, subject: schemas.SubjectCreate):
         name=subject.name,
         code=subject.code,
         department=subject.department,
+        department_id=subject.department_id,
         professor_id=subject.professor_id,
         description=subject.description,
         semester=subject.semester,
@@ -173,6 +201,7 @@ def create_announcement(db: Session, announcement: schemas.AnnouncementCreate):
         content=announcement.content,
         author_id=announcement.author_id,
         department=announcement.department,
+        department_id=announcement.department_id,
         important=announcement.important,
         semester=announcement.semester
     )

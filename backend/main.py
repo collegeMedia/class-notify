@@ -22,6 +22,36 @@ app.add_middleware(
 def read_root():
     return {"message": "University Management API is running"}
 
+# Department endpoints
+@app.post("/departments/", response_model=schemas.Department)
+def create_department(department: schemas.DepartmentCreate, db: Session = Depends(get_db)):
+    db_department = crud.get_department_by_code(db, code=department.code)
+    if db_department:
+        raise HTTPException(status_code=400, detail="Department code already exists")
+    db_department = crud.get_department_by_name(db, name=department.name)
+    if db_department:
+        raise HTTPException(status_code=400, detail="Department name already exists")
+    return crud.create_department(db=db, department=department)
+
+@app.get("/departments/", response_model=List[schemas.Department])
+def read_departments(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    departments = crud.get_departments(db, skip=skip, limit=limit)
+    return departments
+
+@app.get("/departments/code/{code}", response_model=schemas.Department)
+def read_department_by_code(code: str, db: Session = Depends(get_db)):
+    db_department = crud.get_department_by_code(db, code=code)
+    if db_department is None:
+        raise HTTPException(status_code=404, detail="Department not found")
+    return db_department
+
+@app.get("/departments/{department_id}", response_model=schemas.Department)
+def read_department(department_id: str, db: Session = Depends(get_db)):
+    db_department = crud.get_department(db, department_id=department_id)
+    if db_department is None:
+        raise HTTPException(status_code=404, detail="Department not found")
+    return db_department
+
 # User endpoints
 @app.post("/users/", response_model=schemas.User)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):

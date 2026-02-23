@@ -7,6 +7,22 @@ from database import Base
 def generate_uuid():
     return str(uuid.uuid4())
 
+class Department(Base):
+    __tablename__ = "departments"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    name = Column(String, unique=True, index=True)
+    code = Column(String, unique=True, index=True)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    # Relationships
+    users = relationship("User", back_populates="department_rel")
+    announcements = relationship("Announcement", back_populates="department_rel")
+    assignments = relationship("Assignment", back_populates="department_rel")
+    lectures = relationship("Lecture", back_populates="department_rel")
+    subjects = relationship("Subject", back_populates="department_rel")
+
 class User(Base):
     __tablename__ = "users"
 
@@ -15,11 +31,13 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     role = Column(String)
     department = Column(String)
+    department_id = Column(String, ForeignKey("departments.id"), nullable=True)
     avatar = Column(String, nullable=True)
     semester = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     # Relationships
+    department_rel = relationship("Department", back_populates="users")
     announcements = relationship("Announcement", back_populates="author")
     assignments = relationship("Assignment", back_populates="author")
     lectures = relationship("Lecture", back_populates="professor")
@@ -36,11 +54,13 @@ class Announcement(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     author_id = Column(String, ForeignKey("users.id"))
     department = Column(String, nullable=True)
+    department_id = Column(String, ForeignKey("departments.id"), nullable=True)
     important = Column(Boolean, default=False)
     semester = Column(String, nullable=True)
 
     # Relationships
     author = relationship("User", back_populates="announcements")
+    department_rel = relationship("Department", back_populates="announcements")
 
 class Assignment(Base):
     __tablename__ = "assignments"
@@ -51,6 +71,7 @@ class Assignment(Base):
     due_date = Column(String)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     department = Column(String)
+    department_id = Column(String, ForeignKey("departments.id"), nullable=True)
     subject = Column(String)
     author_id = Column(String, ForeignKey("users.id"))
     attachments = Column(String, nullable=True)  # JSON string of file paths
@@ -58,6 +79,7 @@ class Assignment(Base):
 
     # Relationships
     author = relationship("User", back_populates="assignments")
+    department_rel = relationship("Department", back_populates="assignments")
 
 class Lecture(Base):
     __tablename__ = "lectures"
@@ -70,6 +92,7 @@ class Lecture(Base):
     end_time = Column(String)
     location = Column(String)
     department = Column(String)
+    department_id = Column(String, ForeignKey("departments.id"), nullable=True)
     subject = Column(String)
     professor_id = Column(String, ForeignKey("users.id"))
     materials = Column(String, nullable=True)  # JSON string of file paths
@@ -77,6 +100,7 @@ class Lecture(Base):
 
     # Relationships
     professor = relationship("User", back_populates="lectures")
+    department_rel = relationship("Department", back_populates="lectures")
 
 class Subject(Base):
     __tablename__ = "subjects"
@@ -85,6 +109,7 @@ class Subject(Base):
     name = Column(String, index=True)
     code = Column(String, unique=True)
     department = Column(String)
+    department_id = Column(String, ForeignKey("departments.id"), nullable=True)
     professor_id = Column(String, ForeignKey("users.id"))
     description = Column(Text)
     semester = Column(String)
@@ -93,6 +118,7 @@ class Subject(Base):
 
     # Relationships
     professor = relationship("User", back_populates="subjects")
+    department_rel = relationship("Department", back_populates="subjects")
 
 class ChatGroup(Base):
     __tablename__ = "chat_groups"

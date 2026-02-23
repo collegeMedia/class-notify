@@ -2,12 +2,29 @@ from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 
+# Department schemas
+class DepartmentBase(BaseModel):
+    name: str
+    code: str
+    description: Optional[str] = None
+
+class DepartmentCreate(DepartmentBase):
+    pass
+
+class Department(DepartmentBase):
+    id: str
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+
 # User schemas
 class UserBase(BaseModel):
     name: str
     email: str
     role: str
     department: str
+    department_id: Optional[str] = None
     avatar: Optional[str] = None
     semester: Optional[str] = None
 
@@ -26,6 +43,7 @@ class AnnouncementBase(BaseModel):
     title: str
     content: str
     department: Optional[str] = None
+    department_id: Optional[str] = None
     important: bool = False
     semester: Optional[str] = None
 
@@ -46,6 +64,7 @@ class AssignmentBase(BaseModel):
     description: str
     due_date: str
     department: str
+    department_id: Optional[str] = None
     subject: str
     attachments: Optional[str] = None
     semester: str
@@ -70,6 +89,7 @@ class LectureBase(BaseModel):
     end_time: str
     location: str
     department: str
+    department_id: Optional[str] = None
     subject: str
     materials: Optional[str] = None
     semester: str
@@ -89,6 +109,7 @@ class SubjectBase(BaseModel):
     name: str
     code: str
     department: str
+    department_id: Optional[str] = None
     description: str
     semester: str
     credits: Optional[int] = None
