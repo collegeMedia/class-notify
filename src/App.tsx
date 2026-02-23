@@ -8,15 +8,30 @@ import NotFound from "@/pages/NotFound";
 import AdminUpload from "@/pages/AdminUpload";
 import ChatGroups from "@/pages/ChatGroups";
 import ChatRoom from "@/pages/ChatRoom";
+import { isAuthenticated } from "@/lib/auth";
 import { currentUser } from "@/lib/data";
 
-// Very simple auth guard: If user has no name/email, redirect to Login
 function RequireAuth({ children }: { children: JSX.Element }) {
   const location = useLocation();
-  const userIsLoggedIn = currentUser && currentUser.name && currentUser.email;
+  const userIsLoggedIn = isAuthenticated() && currentUser && currentUser.name && currentUser.email;
   if (!userIsLoggedIn && location.pathname !== "/login") {
     return <Navigate to="/login" replace />;
   }
+  return children;
+}
+
+function RequireAdmin({ children }: { children: JSX.Element }) {
+  const location = useLocation();
+  const userIsLoggedIn = isAuthenticated() && currentUser && currentUser.name && currentUser.email;
+  
+  if (!userIsLoggedIn) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  if (currentUser.role !== "admin") {
+    return <Navigate to="/" replace />;
+  }
+  
   return children;
 }
 
@@ -31,7 +46,11 @@ function App() {
               <Route path="/" element={<Index />} />
               <Route path="/assignments" element={<Assignments />} />
               <Route path="/lectures" element={<Lectures />} />
-              <Route path="/admin" element={<AdminUpload />} />
+              <Route path="/admin" element={
+                <RequireAdmin>
+                  <AdminUpload />
+                </RequireAdmin>
+              } />
               <Route path="/chat-groups" element={<ChatGroups />} />
               <Route path="/chat/:groupId" element={<ChatRoom />} />
               <Route path="*" element={<NotFound />} />

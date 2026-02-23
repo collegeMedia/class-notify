@@ -1,16 +1,25 @@
 import { Announcement, Assignment, ChatGroup, Department, DepartmentModel, Lecture, Message, Semester, Subject, User } from "./types";
+import { getToken } from "./auth";
 
 const API_URL = "http://localhost:8000";
 
 // Helper function for API requests
 async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_URL}${endpoint}`;
+  const token = getToken();
+  
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    ...options?.headers,
+  };
+  
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  
   const response = await fetch(url, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -20,6 +29,11 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
 
   return response.json();
 }
+
+// Auth related API calls
+export const getCurrentUser = (): Promise<User> => {
+  return fetchAPI<User>("/auth/me");
+};
 
 // Department related API calls
 export const getDepartments = (): Promise<DepartmentModel[]> => {
@@ -66,6 +80,43 @@ export const createUser = (user: Omit<User, "id" | "created_at">): Promise<User>
   };
   
   return fetchAPI<User>("/users/", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+};
+
+// Announcement related API calls
+export const getAnnouncements = (department?: Department | string, semester?: Semester): Promise<Announcement[]> => {
+  let query = "";
+  if (department) query += `department=${department}&`;
+  if (semester) query += `semester=${semester}`;
+  
+  return fetchAPI<Announcement[]>(`/announcements/?${query}`);
+};
+
+export const getAnnouncementById = (id: string): Promise<Announcement> => {
+  return fetchAPI<Announcement>(`/announcements/${id}`);
+};
+
+export const createAnnouncement = (announcement: Omit<Announcement, "id" | "createdAt" | "created_at">): Promise<Announcement> => {
+  let departmentValue: string | undefined;
+  if (typeof announcement.department === 'string') {
+    departmentValue = announcement.department;
+  } else if (announcement.department && typeof announcement.department === 'object') {
+    departmentValue = (announcement.department as any).code;
+  }
+  
+  const payload = {
+    title: announcement.title,
+    content: announcement.content,
+    department: departmentValue,
+    department_id: announcement.department_id,
+    author_id: announcement.author?.id || announcement.author_id,
+    important: announcement.important || false,
+    semester: announcement.semester,
+  };
+  
+  return fetchAPI<Announcement>("/announcements/", {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -170,36 +221,6 @@ export const createSubject = (subject: Omit<Subject, "id">): Promise<Subject> =>
   };
   
   return fetchAPI<Subject>("/subjects/", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-};
-
-// Announcement related API calls
-export const getAnnouncements = (department?: Department): Promise<Announcement[]> => {
-  let query = department ? `department=${department}` : "";
-  
-  return fetchAPI<Announcement[]>(`/announcements/?${query}`);
-};
-
-export const getAnnouncementById = (id: string): Promise<Announcement> => {
-  return fetchAPI<Announcement>(`/announcements/${id}`);
-};
-
-export const createAnnouncement = (
-  announcement: Omit<Announcement, "id" | "createdAt" | "created_at">
-): Promise<Announcement> => {
-  const payload = {
-    title: announcement.title,
-    content: announcement.content,
-    author_id: announcement.author.id || announcement.author_id,
-    department: announcement.department,
-    department_id: announcement.department_id,
-    important: announcement.important || false,
-    semester: announcement.semester,
-  };
-  
-  return fetchAPI<Announcement>("/announcements/", {
     method: "POST",
     body: JSON.stringify(payload),
   });

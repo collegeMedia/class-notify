@@ -12,8 +12,10 @@ interface AssignmentCardProps {
 }
 
 const AssignmentCard = ({ assignment, isEditable = false }: AssignmentCardProps) => {
-  const dueDate = new Date(assignment.dueDate);
-  const createdDate = new Date(assignment.createdAt);
+  const dueDateString = assignment.dueDate || assignment.due_date || new Date().toISOString();
+  const createdDateString = assignment.createdAt || assignment.created_at || new Date().toISOString();
+  const dueDate = new Date(dueDateString);
+  const createdDate = new Date(createdDateString);
   const isOverdue = isPast(dueDate);
   const timeLeft = formatDistanceToNow(dueDate, { addSuffix: true });
   

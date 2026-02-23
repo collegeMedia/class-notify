@@ -13,7 +13,9 @@ interface LectureCardProps {
 }
 
 const LectureCard = ({ lecture, isToday = true, isEditable = false }: LectureCardProps) => {
-  const lectureDate = new Date(`${lecture.date}T${lecture.startTime}`);
+  const startTime = lecture.startTime || lecture.start_time || "00:00";
+  const endTime = lecture.endTime || lecture.end_time || "00:00";
+  const lectureDate = new Date(`${lecture.date}T${startTime}`);
   
   return (
     <div className="w-full bg-white/80 backdrop-blur-sm rounded-2xl p-5 shadow-subtle hover:shadow-elevation-1 transition-all duration-300">
@@ -48,8 +50,8 @@ const LectureCard = ({ lecture, isToday = true, isEditable = false }: LectureCar
           <ClockIcon size={14} className="mr-1.5" />
           <span>
             {isToday 
-              ? `${lecture.startTime} - ${lecture.endTime}` 
-              : `${format(lectureDate, 'PPP')} (${lecture.startTime} - ${lecture.endTime})`
+              ? `${startTime} - ${endTime}` 
+              : `${format(lectureDate, 'PPP')} (${startTime} - ${endTime})`
             }
           </span>
         </div>

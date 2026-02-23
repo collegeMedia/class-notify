@@ -26,36 +26,40 @@ const DepartmentUploadForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
-  // Filter users who can be department heads (teachers or admins)
-  const eligibleHeads = users.filter(
-    (user) => user.role === "teacher" || user.role === "admin" || user.role === "department_admin"
-  );
-
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       code: "",
       description: "",
-      headId: "",
     },
   });
 
   const onSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
     
-    // Simulate API call with a timeout
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      await createDepartment({
+        name: data.name,
+        code: data.code,
+        description: data.description,
+      });
       
-      // Simulate successful upload
       toast({
         title: "Department created",
         description: `Department "${data.name}" has been successfully created.`,
       });
       
       form.reset();
-    }, 1500);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create department",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

@@ -2,6 +2,18 @@ from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 
+# Auth schemas
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    user_id: Optional[str] = None
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
 # Department schemas
 class DepartmentBase(BaseModel):
     name: str
@@ -29,10 +41,11 @@ class UserBase(BaseModel):
     semester: Optional[str] = None
 
 class UserCreate(UserBase):
-    pass
+    password: str
 
 class User(UserBase):
     id: str
+    is_active: bool
     created_at: datetime
 
     class Config:

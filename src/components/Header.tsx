@@ -1,10 +1,11 @@
 
 import { cn } from "@/lib/utils";
 import { User } from "@/lib/types";
-import { LogOut, Menu, X, Bell, ClipboardList, Book, MessageSquare } from "lucide-react";
+import { LogOut, Menu, X, Bell, ClipboardList, Book, MessageSquare, ShieldCheck } from "lucide-react";
 import { useState, useEffect } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { logoutCurrentUser } from "@/lib/data";
+import { removeToken } from "@/lib/auth";
 
 interface HeaderProps {
   user: User | null;
@@ -19,7 +20,7 @@ const Header = ({ user }: HeaderProps) => {
     setIsOpen(false);
   }, [location.pathname]);
 
-  const navItems = [
+  const baseNavItems = [
     {
       label: "Announcements",
       href: "/",
@@ -42,7 +43,18 @@ const Header = ({ user }: HeaderProps) => {
     },
   ];
 
+  const adminNavItem = {
+    label: "Admin Panel",
+    href: "/admin",
+    icon: <ShieldCheck size={18} className="text-amber-500" />,
+  };
+
+  const navItems = user?.role === "admin" 
+    ? [...baseNavItems, adminNavItem]
+    : baseNavItems;
+
   const handleLogout = () => {
+    removeToken();
     logoutCurrentUser();
     navigate("/login");
   };

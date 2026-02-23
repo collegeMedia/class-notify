@@ -1,9 +1,17 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from datetime import timedelta
 import models, schemas, crud
 from database import engine, get_db
+from auth import (
+    create_access_token, 
+    get_current_user, 
+    get_current_admin_user, 
+    ACCESS_TOKEN_EXPIRE_MINUTES
+)
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -22,9 +30,40 @@ app.add_middleware(
 def read_root():
     return {"message": "University Management API is running"}
 
-# Department endpoints
+# Auth endpoints
+@app.post("/auth/register", response_model=schemas.User)
+def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    db_user = crud.get_user_by_email(db, email=user.email)
+    if db_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    return crud.create_user(db=db, user=user)
+
+@app.post("/auth/login", response_model=schemas.Token)
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = crud.authenticate_user(db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.id}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.get("/auth/me", response_model=schemas.User)
+def get_me(current_user: models.User = Depends(get_current_user)):
+    return current_user
+
+# Department endpoints (Admin only for creating)
 @app.post("/departments/", response_model=schemas.Department)
-def create_department(department: schemas.DepartmentCreate, db: Session = Depends(get_db)):
+def create_department(
+    department: schemas.DepartmentCreate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_admin_user)
+):
     db_department = crud.get_department_by_code(db, code=department.code)
     if db_department:
         raise HTTPException(status_code=400, detail="Department code already exists")
@@ -52,9 +91,13 @@ def read_department(department_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Department not found")
     return db_department
 
-# User endpoints
+# User endpoints (Admin only for creating)
 @app.post("/users/", response_model=schemas.User)
-def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+def create_user(
+    user: schemas.UserCreate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_admin_user)
+):
     db_user = crud.get_user_by_email(db, email=user.email)
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")

@@ -10,7 +10,8 @@ interface AnnouncementCardProps {
 }
 
 const AnnouncementCard = ({ announcement, isHighlighted = false }: AnnouncementCardProps) => {
-  const date = new Date(announcement.createdAt);
+  const dateString = announcement.createdAt || announcement.created_at || new Date().toISOString();
+  const date = new Date(dateString);
   const timeAgo = formatDistanceToNow(date, { addSuffix: true });
 
   return (

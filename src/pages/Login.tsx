@@ -5,8 +5,8 @@ import { setCurrentUser } from "@/lib/data";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { User, UserRole, Department } from "@/lib/types";
-import { Button } from "@/components/ui/button";
+import { login, setToken } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/api";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -14,76 +14,53 @@ const Login = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const { toast } = useToast();
   const [formState, setFormState] = useState({
-    email: "john.doe@university.edu",
-    password: "password123",
+    email: "admin@university.edu",
+    password: "admin123",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormState({ ...formState, [e.target.name]: e.target.value });
   };
 
-  async function fetchUser(email: string, role?: UserRole) {
-    try {
-      const response = await fetch("http://localhost:8000/users/");
-      if (!response.ok) throw new Error("Failed to fetch users");
-      const users: User[] = await response.json();
-
-      return users.find((u) =>
-        u.email === email && (role ? u.role === role : true)
-      );
-    } catch {
-      return null;
-    }
-  }
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    const roleToCheck = isAdmin ? "admin" : undefined;
+    try {
+      const tokens = await login({
+        email: formState.email,
+        password: formState.password,
+      });
 
-    const user = await fetchUser(formState.email, roleToCheck as UserRole);
+      setToken(tokens.access_token);
 
-    setLoading(false);
+      const user = await getCurrentUser();
 
-    if (user) {
+      if (isAdmin && user.role !== "admin") {
+        setLoading(false);
+        toast({
+          title: "Access Denied",
+          description: "You don't have admin privileges.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       setCurrentUser(user);
+      
       toast({
         title: isAdmin ? "Admin Login Successful" : "Login Successful",
         description: isAdmin
           ? "You've been logged in with admin privileges."
-          : "Welcome to the student portal.",
+          : `Welcome back, ${user.name}!`,
       });
+      
       navigate("/");
-    } else {
+    } catch (error) {
+      setLoading(false);
       toast({
         title: "Login Failed",
-        description: (
-          <span>
-            {isAdmin
-              ? "No admin user found with that email."
-              : (
-                <>
-                  User not found.{" "}
-                  <a
-                    className="text-primary underline font-bold"
-                    href="#"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      toast({
-                        title: "Registration",
-                        description: "Please contact admin to register.",
-                        variant: "default"
-                      });
-                    }}
-                  >
-                    Register now
-                  </a>
-                </>
-              )
-            }
-          </span>
-        ),
+        description: error instanceof Error ? error.message : "Incorrect email or password",
         variant: "destructive",
       });
     }

@@ -3,6 +3,16 @@ from sqlalchemy import and_
 import models, schemas
 import json
 from typing import Optional, List
+from auth import get_password_hash, verify_password
+
+# Authentication operations
+def authenticate_user(db: Session, email: str, password: str):
+    user = get_user_by_email(db, email)
+    if not user:
+        return False
+    if not verify_password(password, user.hashed_password):
+        return False
+    return user
 
 # Department operations
 def get_department(db: Session, department_id: str):
@@ -39,9 +49,11 @@ def get_users(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.User).offset(skip).limit(limit).all()
 
 def create_user(db: Session, user: schemas.UserCreate):
+    hashed_password = get_password_hash(user.password)
     db_user = models.User(
         name=user.name,
         email=user.email,
+        hashed_password=hashed_password,
         role=user.role,
         department=user.department,
         department_id=user.department_id,

@@ -29,11 +29,13 @@ class User(Base):
     id = Column(String, primary_key=True, default=generate_uuid)
     name = Column(String, index=True)
     email = Column(String, unique=True, index=True)
+    hashed_password = Column(String)
     role = Column(String)
     department = Column(String)
     department_id = Column(String, ForeignKey("departments.id"), nullable=True)
     avatar = Column(String, nullable=True)
     semester = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     # Relationships
