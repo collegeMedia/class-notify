@@ -1,4 +1,5 @@
 
+import { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Index from "@/pages/Index";
 import Assignments from "@/pages/Assignments";
@@ -12,7 +13,7 @@ import AdminUpload from "@/pages/AdminUpload";
 import ChatGroups from "@/pages/ChatGroups";
 import ChatRoom from "@/pages/ChatRoom";
 import { isAuthenticated } from "@/lib/auth";
-import { currentUser } from "@/lib/data";
+import { currentUser, loadCurrentUser } from "@/lib/data";
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const location = useLocation();
@@ -39,6 +40,10 @@ function RequireAdmin({ children }: { children: JSX.Element }) {
 }
 
 function App() {
+  useEffect(() => {
+    loadCurrentUser();
+  }, []);
+
   return (
     <Router>
       <Routes>

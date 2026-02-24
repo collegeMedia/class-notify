@@ -20,7 +20,12 @@ app = FastAPI(title="University Management API")
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with your frontend URL
+    allow_origins=[
+        "http://localhost:8080",
+        "http://localhost:8081",
+        "http://127.0.0.1:8080",
+        "http://127.0.0.1:8081",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -157,7 +162,11 @@ def read_lectures(
 
 # Subject endpoints
 @app.post("/subjects/", response_model=schemas.Subject)
-def create_subject(subject: schemas.SubjectCreate, db: Session = Depends(get_db)):
+def create_subject(
+    subject: schemas.SubjectCreate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_admin_user)
+):
     return crud.create_subject(db=db, subject=subject)
 
 @app.get("/subjects/", response_model=List[schemas.Subject])
@@ -169,6 +178,64 @@ def read_subjects(
     db: Session = Depends(get_db)
 ):
     subjects = crud.get_subjects(db, skip=skip, limit=limit, department=department, semester=semester)
+    return subjects
+
+@app.get("/subjects/{subject_id}", response_model=schemas.Subject)
+def read_subject(subject_id: str, db: Session = Depends(get_db)):
+    subject = crud.get_subject(db, subject_id=subject_id)
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+    return subject
+
+# Subject Enrollment endpoints
+@app.post("/subjects/{subject_id}/enroll/{student_id}")
+def enroll_student(
+    subject_id: str, 
+    student_id: str, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    if current_user.role not in ["admin", "professor", "teacher"]:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    
+    result = crud.enroll_student_in_subject(db, student_id, subject_id)
+    if not result:
+        raise HTTPException(status_code=400, detail="Failed to enroll student")
+    
+    return {"message": "Student enrolled successfully"}
+
+@app.delete("/subjects/{subject_id}/enroll/{student_id}")
+def unenroll_student(
+    subject_id: str, 
+    student_id: str, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    if current_user.role not in ["admin", "professor", "teacher"]:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    
+    result = crud.unenroll_student_from_subject(db, student_id, subject_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Student or subject not found")
+    
+    return {"message": "Student unenrolled successfully"}
+
+@app.get("/subjects/{subject_id}/students", response_model=List[schemas.User])
+def read_enrolled_students(
+    subject_id: str, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    students = crud.get_enrolled_students(db, subject_id)
+    return students
+
+@app.get("/students/{student_id}/subjects", response_model=List[schemas.Subject])
+def read_student_subjects(
+    student_id: str, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    subjects = crud.get_student_subjects(db, student_id)
     return subjects
 
 # Announcement endpoints
@@ -188,36 +255,122 @@ def read_announcements(
 
 # ChatGroup endpoints
 @app.post("/chat-groups/", response_model=schemas.ChatGroup)
-def create_chat_group(chat_group: schemas.ChatGroupCreate, db: Session = Depends(get_db)):
-    return crud.create_chat_group(db=db, chat_group=chat_group)
+def create_chat_group(
+    chat_group: schemas.ChatGroupCreate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    if current_user.role not in ["admin", "professor", "teacher"]:
+        raise HTTPException(status_code=403, detail="Only teachers and admins can create chat groups")
+    
+    result = crud.create_chat_group(db=db, chat_group=chat_group)
+    if not result:
+        raise HTTPException(status_code=400, detail="Failed to create chat group. Subject may not exist.")
+    
+    return result
 
 @app.get("/chat-groups/teacher/{teacher_id}", response_model=List[schemas.ChatGroup])
-def read_teacher_chat_groups(teacher_id: str, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def read_teacher_chat_groups(
+    teacher_id: str, 
+    skip: int = 0, 
+    limit: int = 100, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
     chat_groups = crud.get_chat_groups_for_teacher(db, teacher_id=teacher_id, skip=skip, limit=limit)
     return chat_groups
 
 @app.get("/chat-groups/student/{student_id}", response_model=List[schemas.ChatGroup])
-def read_student_chat_groups(student_id: str, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    student = crud.get_user(db, user_id=student_id)
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found")
-        
-    chat_groups = crud.get_chat_groups_for_student(db, student_id=student_id, semester=student.semester, skip=skip, limit=limit)
+def read_student_chat_groups(
+    student_id: str, 
+    skip: int = 0, 
+    limit: int = 100, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    if current_user.role != "admin" and current_user.id != student_id:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    
+    chat_groups = crud.get_chat_groups_for_student(db, student_id=student_id, skip=skip, limit=limit)
     return chat_groups
 
-@app.get("/chat-groups/{chat_group_id}", response_model=schemas.ChatGroup)
-def read_chat_group(chat_group_id: str, db: Session = Depends(get_db)):
+@app.get("/chat-groups/{chat_group_id}", response_model=schemas.ChatGroupWithMembers)
+def read_chat_group(
+    chat_group_id: str, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
     db_chat_group = crud.get_chat_group(db, chat_group_id=chat_group_id)
     if db_chat_group is None:
         raise HTTPException(status_code=404, detail="Chat group not found")
+    
+    if not crud.is_member_of_chat_group(db, chat_group_id, current_user.id):
+        raise HTTPException(status_code=403, detail="You are not a member of this chat group")
+    
     return db_chat_group
+
+@app.post("/chat-groups/{chat_group_id}/members/{user_id}")
+def add_chat_group_member(
+    chat_group_id: str, 
+    user_id: str, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    chat_group = crud.get_chat_group(db, chat_group_id)
+    if not chat_group:
+        raise HTTPException(status_code=404, detail="Chat group not found")
+    
+    if current_user.id != chat_group.teacher_id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only the teacher or admin can add members")
+    
+    result = crud.add_member_to_chat_group(db, chat_group_id, user_id)
+    if not result:
+        raise HTTPException(status_code=400, detail="Failed to add member. User may not be enrolled in the subject.")
+    
+    return {"message": "Member added successfully"}
+
+@app.delete("/chat-groups/{chat_group_id}/members/{user_id}")
+def remove_chat_group_member(
+    chat_group_id: str, 
+    user_id: str, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    chat_group = crud.get_chat_group(db, chat_group_id)
+    if not chat_group:
+        raise HTTPException(status_code=404, detail="Chat group not found")
+    
+    if current_user.id != chat_group.teacher_id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only the teacher or admin can remove members")
+    
+    result = crud.remove_member_from_chat_group(db, chat_group_id, user_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="User or chat group not found")
+    
+    return {"message": "Member removed successfully"}
 
 # Message endpoints
 @app.post("/messages/", response_model=schemas.Message)
-def create_message(message: schemas.MessageCreate, db: Session = Depends(get_db)):
+def create_message(
+    message: schemas.MessageCreate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    if not crud.is_member_of_chat_group(db, message.chat_group_id, current_user.id):
+        raise HTTPException(status_code=403, detail="You must be a member of this chat group to send messages")
+    
     return crud.create_message(db=db, message=message)
 
 @app.get("/messages/{chat_group_id}", response_model=List[schemas.Message])
-def read_messages(chat_group_id: str, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def read_messages(
+    chat_group_id: str, 
+    skip: int = 0, 
+    limit: int = 100, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    if not crud.is_member_of_chat_group(db, chat_group_id, current_user.id):
+        raise HTTPException(status_code=403, detail="You must be a member of this chat group to view messages")
+    
     messages = crud.get_messages(db, chat_group_id=chat_group_id, skip=skip, limit=limit)
     return messages

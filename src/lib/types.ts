@@ -106,10 +106,15 @@ export interface ChatGroup {
   id: string;
   name: string;
   subjectId: string;
+  subject_id?: string;
   teacherId: string;
+  teacher_id?: string;
   semester: Semester;
   createdAt: string;
+  created_at?: string;
   teacher: User;
+  is_active?: boolean;
+  members?: User[];
 }
 
 export interface Message {
@@ -117,7 +122,9 @@ export interface Message {
   content: string;
   sender: User;
   chatGroupId: string;
+  chat_group_id?: string;
   createdAt: string;
+  created_at?: string;
 }
 
 export interface CurrentUser {

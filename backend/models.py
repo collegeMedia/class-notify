@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Text, DateTime
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Text, DateTime, Table
 from sqlalchemy.orm import relationship
 import datetime
 import uuid
@@ -6,6 +6,24 @@ from database import Base
 
 def generate_uuid():
     return str(uuid.uuid4())
+
+# Association table for subject enrollments (students enrolled in subjects)
+subject_enrollments = Table(
+    'subject_enrollments',
+    Base.metadata,
+    Column('student_id', String, ForeignKey('users.id'), primary_key=True),
+    Column('subject_id', String, ForeignKey('subjects.id'), primary_key=True),
+    Column('enrolled_at', DateTime, default=datetime.datetime.utcnow)
+)
+
+# Association table for chat group members
+chat_group_members = Table(
+    'chat_group_members',
+    Base.metadata,
+    Column('user_id', String, ForeignKey('users.id'), primary_key=True),
+    Column('chat_group_id', String, ForeignKey('chat_groups.id'), primary_key=True),
+    Column('joined_at', DateTime, default=datetime.datetime.utcnow)
+)
 
 class Department(Base):
     __tablename__ = "departments"
@@ -46,6 +64,8 @@ class User(Base):
     subjects = relationship("Subject", back_populates="professor")
     messages = relationship("Message", back_populates="sender")
     chat_groups = relationship("ChatGroup", back_populates="teacher")
+    enrolled_subjects = relationship("Subject", secondary=subject_enrollments, back_populates="enrolled_students")
+    joined_chat_groups = relationship("ChatGroup", secondary=chat_group_members, back_populates="members")
 
 class Announcement(Base):
     __tablename__ = "announcements"
@@ -121,19 +141,24 @@ class Subject(Base):
     # Relationships
     professor = relationship("User", back_populates="subjects")
     department_rel = relationship("Department", back_populates="subjects")
+    enrolled_students = relationship("User", secondary=subject_enrollments, back_populates="enrolled_subjects")
+    chat_group = relationship("ChatGroup", back_populates="subject", uselist=False)
 
 class ChatGroup(Base):
     __tablename__ = "chat_groups"
 
     id = Column(String, primary_key=True, default=generate_uuid)
     name = Column(String, index=True)
-    subject_id = Column(String, ForeignKey("subjects.id"))
+    subject_id = Column(String, ForeignKey("subjects.id"), unique=True)
     teacher_id = Column(String, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     semester = Column(String)
+    is_active = Column(Boolean, default=True)
     
     # Relationships
+    subject = relationship("Subject", back_populates="chat_group")
     teacher = relationship("User", back_populates="chat_groups")
+    members = relationship("User", secondary=chat_group_members, back_populates="joined_chat_groups")
     messages = relationship("Message", back_populates="chat_group")
     
 class Message(Base):

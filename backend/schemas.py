@@ -138,6 +138,19 @@ class Subject(SubjectBase):
     class Config:
         orm_mode = True
 
+# Subject Enrollment schemas
+class SubjectEnrollmentCreate(BaseModel):
+    student_id: str
+    subject_id: str
+
+class SubjectEnrollment(BaseModel):
+    student_id: str
+    subject_id: str
+    enrolled_at: datetime
+
+    class Config:
+        orm_mode = True
+
 # ChatGroup schemas
 class ChatGroupBase(BaseModel):
     name: str
@@ -145,12 +158,19 @@ class ChatGroupBase(BaseModel):
     semester: str
 
 class ChatGroupCreate(ChatGroupBase):
-    teacher_id: str
+    teacher_id: Optional[str] = None
 
 class ChatGroup(ChatGroupBase):
     id: str
     created_at: datetime
+    is_active: bool
     teacher: User
+
+    class Config:
+        orm_mode = True
+
+class ChatGroupWithMembers(ChatGroup):
+    members: List[User]
 
     class Config:
         orm_mode = True

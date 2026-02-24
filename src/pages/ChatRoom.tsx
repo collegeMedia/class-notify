@@ -105,6 +105,7 @@ const ChatRoom = () => {
               <>
                 {messages.map((message) => {
                   const isCurrentUser = message.sender.id === currentUser.id;
+                  const dateString = message.createdAt || message.created_at || new Date().toISOString();
                   return (
                     <div
                       key={message.id}
@@ -122,7 +123,7 @@ const ChatRoom = () => {
                         )}
                         <p className="whitespace-pre-wrap break-words">{message.content}</p>
                         <p className="text-xs mt-1 opacity-70">
-                          {format(new Date(message.createdAt), 'MMM d, h:mm a')}
+                          {format(new Date(dateString), 'MMM d, h:mm a')}
                         </p>
                       </div>
                     </div>

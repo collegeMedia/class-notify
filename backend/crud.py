@@ -222,39 +222,140 @@ def create_announcement(db: Session, announcement: schemas.AnnouncementCreate):
     db.refresh(db_announcement)
     return db_announcement
 
+# Subject Enrollment operations
+def enroll_student_in_subject(db: Session, student_id: str, subject_id: str):
+    student = db.query(models.User).filter(models.User.id == student_id).first()
+    subject = db.query(models.Subject).filter(models.Subject.id == subject_id).first()
+    
+    if not student or not subject:
+        return None
+    
+    if student.role != "student":
+        return None
+    
+    if subject not in student.enrolled_subjects:
+        student.enrolled_subjects.append(subject)
+        db.commit()
+        db.refresh(student)
+    
+    return subject
+
+def unenroll_student_from_subject(db: Session, student_id: str, subject_id: str):
+    student = db.query(models.User).filter(models.User.id == student_id).first()
+    subject = db.query(models.Subject).filter(models.Subject.id == subject_id).first()
+    
+    if not student or not subject:
+        return False
+    
+    if subject in student.enrolled_subjects:
+        student.enrolled_subjects.remove(subject)
+        db.commit()
+    
+    return True
+
+def get_enrolled_students(db: Session, subject_id: str):
+    subject = db.query(models.Subject).filter(models.Subject.id == subject_id).first()
+    if not subject:
+        return []
+    return subject.enrolled_students
+
+def get_student_subjects(db: Session, student_id: str):
+    student = db.query(models.User).filter(models.User.id == student_id).first()
+    if not student:
+        return []
+    return student.enrolled_subjects
+
 # ChatGroup operations
 def get_chat_group(db: Session, chat_group_id: str):
     return db.query(models.ChatGroup).filter(models.ChatGroup.id == chat_group_id).first()
 
-def get_chat_groups_for_teacher(db: Session, teacher_id: str, skip: int = 0, limit: int = 100):
-    return db.query(models.ChatGroup).filter(models.ChatGroup.teacher_id == teacher_id).offset(skip).limit(limit).all()
+def get_chat_group_by_subject(db: Session, subject_id: str):
+    return db.query(models.ChatGroup).filter(models.ChatGroup.subject_id == subject_id).first()
 
-def get_chat_groups_for_student(db: Session, student_id: str, semester: str, skip: int = 0, limit: int = 100):
-    # Logic: Find subjects that this student should be part of based on their department and semester
-    student = db.query(models.User).filter(models.User.id == student_id).first()
-    
-    if not student:
-        return []
-    
-    # Find chat groups for subjects in the student's department and semester
-    return db.query(models.ChatGroup).join(
-        models.Subject, models.ChatGroup.subject_id == models.Subject.id
-    ).filter(
-        models.Subject.department == student.department,
-        models.ChatGroup.semester == student.semester
+def get_chat_groups_for_teacher(db: Session, teacher_id: str, skip: int = 0, limit: int = 100):
+    return db.query(models.ChatGroup).filter(
+        models.ChatGroup.teacher_id == teacher_id,
+        models.ChatGroup.is_active == True
     ).offset(skip).limit(limit).all()
 
+def get_chat_groups_for_student(db: Session, student_id: str, skip: int = 0, limit: int = 100):
+    student = db.query(models.User).filter(models.User.id == student_id).first()
+    
+    if not student or student.role != "student":
+        return []
+    
+    return student.joined_chat_groups
+
 def create_chat_group(db: Session, chat_group: schemas.ChatGroupCreate):
+    subject = db.query(models.Subject).filter(models.Subject.id == chat_group.subject_id).first()
+    
+    if not subject:
+        return None
+    
+    existing_group = get_chat_group_by_subject(db, chat_group.subject_id)
+    if existing_group:
+        return existing_group
+    
+    teacher_id = chat_group.teacher_id or subject.professor_id
+    
     db_chat_group = models.ChatGroup(
         name=chat_group.name,
         subject_id=chat_group.subject_id,
-        teacher_id=chat_group.teacher_id,
+        teacher_id=teacher_id,
         semester=chat_group.semester
     )
     db.add(db_chat_group)
     db.commit()
     db.refresh(db_chat_group)
+    
+    enrolled_students = get_enrolled_students(db, chat_group.subject_id)
+    for student in enrolled_students:
+        add_member_to_chat_group(db, db_chat_group.id, student.id)
+    
     return db_chat_group
+
+def add_member_to_chat_group(db: Session, chat_group_id: str, user_id: str):
+    chat_group = db.query(models.ChatGroup).filter(models.ChatGroup.id == chat_group_id).first()
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    
+    if not chat_group or not user:
+        return None
+    
+    subject = chat_group.subject
+    if user.role == "student" and subject not in user.enrolled_subjects:
+        return None
+    
+    if user not in chat_group.members:
+        chat_group.members.append(user)
+        db.commit()
+        db.refresh(chat_group)
+    
+    return chat_group
+
+def remove_member_from_chat_group(db: Session, chat_group_id: str, user_id: str):
+    chat_group = db.query(models.ChatGroup).filter(models.ChatGroup.id == chat_group_id).first()
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    
+    if not chat_group or not user:
+        return False
+    
+    if user in chat_group.members:
+        chat_group.members.remove(user)
+        db.commit()
+    
+    return True
+
+def is_member_of_chat_group(db: Session, chat_group_id: str, user_id: str) -> bool:
+    chat_group = db.query(models.ChatGroup).filter(models.ChatGroup.id == chat_group_id).first()
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    
+    if not chat_group or not user:
+        return False
+    
+    if user.id == chat_group.teacher_id:
+        return True
+    
+    return user in chat_group.members
 
 # Message operations
 def get_messages(db: Session, chat_group_id: str, skip: int = 0, limit: int = 100):
