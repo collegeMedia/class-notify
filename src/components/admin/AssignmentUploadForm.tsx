@@ -51,6 +51,7 @@ interface AssignmentUploadFormProps {
 const AssignmentUploadForm = ({ editId }: AssignmentUploadFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("");
+  const [selectedDepartmentCode, setSelectedDepartmentCode] = useState<string>("");
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("");
   const { toast } = useToast();
   const { departments, isLoading: isDepartmentsLoading } = useDepartments();
@@ -96,24 +97,27 @@ const AssignmentUploadForm = ({ editId }: AssignmentUploadFormProps) => {
         semester: existingAssignment.semester,
         attachments: existingAssignment.attachments?.join(", ") || "",
       });
-      setSelectedDepartment(existingAssignment.department);
+      const dept = departments.find(d => d.code === existingAssignment.department);
+      setSelectedDepartment(dept?.name || existingAssignment.department);
+      setSelectedDepartmentCode(existingAssignment.department);
       setSelectedDepartmentId(existingAssignment.department_id || "");
     }
-  }, [existingAssignment, form]);
+  }, [existingAssignment, form, departments]);
 
   // Filter subjects based on selected department and user role
   const filteredSubjects = isTeacher && !isAdmin && teacherSubjects
     ? teacherSubjects.filter(
-        (subject) => subject.department === selectedDepartment
+        (subject) => subject.department === selectedDepartmentCode
       )
     : subjects.filter(
-        (subject) => subject.department === selectedDepartment
+        (subject) => subject.department === selectedDepartmentCode
       );
 
   // Handle department change to reset subject field
   const handleDepartmentChange = (value: string) => {
     const dept = departments.find(d => d.code === value);
     setSelectedDepartment(dept?.name || value);
+    setSelectedDepartmentCode(dept?.code || value);
     setSelectedDepartmentId(dept?.id || "");
     form.setValue("department", dept?.code || value);
     form.setValue("subject", "");
@@ -149,6 +153,7 @@ const AssignmentUploadForm = ({ editId }: AssignmentUploadFormProps) => {
         });
         form.reset();
         setSelectedDepartment("");
+        setSelectedDepartmentCode("");
         setSelectedDepartmentId("");
       }
     } catch (error) {

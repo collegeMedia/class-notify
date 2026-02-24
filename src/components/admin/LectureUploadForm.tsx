@@ -63,6 +63,7 @@ interface LectureUploadFormProps {
 const LectureUploadForm = ({ editId }: LectureUploadFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("");
+  const [selectedDepartmentCode, setSelectedDepartmentCode] = useState<string>("");
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("");
   const [selectedSemester, setSelectedSemester] = useState<string>("");
   const { toast } = useToast();
@@ -88,12 +89,12 @@ const LectureUploadForm = ({ editId }: LectureUploadFormProps) => {
   const filteredSubjects = isTeacher && !isAdmin && teacherSubjects
     ? teacherSubjects.filter(
         (subject) => 
-          subject.department === selectedDepartment && 
+          subject.department === selectedDepartmentCode && 
           (!selectedSemester || subject.semester === selectedSemester)
       )
     : subjects.filter(
         (subject) => 
-          subject.department === selectedDepartment && 
+          subject.department === selectedDepartmentCode && 
           (!selectedSemester || subject.semester === selectedSemester)
       );
 
@@ -136,16 +137,19 @@ const LectureUploadForm = ({ editId }: LectureUploadFormProps) => {
         materials: existingLecture.materials?.join(", ") || "",
         semester: existingLecture.semester,
       });
-      setSelectedDepartment(existingLecture.department);
+      const dept = departments.find(d => d.code === existingLecture.department);
+      setSelectedDepartment(dept?.name || existingLecture.department);
+      setSelectedDepartmentCode(existingLecture.department);
       setSelectedDepartmentId(existingLecture.department_id || "");
       setSelectedSemester(existingLecture.semester);
     }
-  }, [existingLecture, form]);
+  }, [existingLecture, form, departments]);
 
   // Handle department change to reset dependent fields
   const handleDepartmentChange = (value: string) => {
     const dept = departments.find(d => d.code === value);
     setSelectedDepartment(dept?.name || value);
+    setSelectedDepartmentCode(dept?.code || value);
     setSelectedDepartmentId(dept?.id || "");
     form.setValue("department", dept?.code || value);
     form.setValue("subject", "");
@@ -198,6 +202,7 @@ const LectureUploadForm = ({ editId }: LectureUploadFormProps) => {
         });
         form.reset();
         setSelectedDepartment("");
+        setSelectedDepartmentCode("");
         setSelectedDepartmentId("");
         setSelectedSemester("");
       }
