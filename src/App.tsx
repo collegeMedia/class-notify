@@ -3,7 +3,10 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "r
 import Index from "@/pages/Index";
 import Assignments from "@/pages/Assignments";
 import Lectures from "@/pages/Lectures";
-import Login from "@/pages/Login";
+import RoleSelection from "@/pages/RoleSelection";
+import StudentLogin from "@/pages/StudentLogin";
+import TeacherLogin from "@/pages/TeacherLogin";
+import AdminLogin from "@/pages/AdminLogin";
 import NotFound from "@/pages/NotFound";
 import AdminUpload from "@/pages/AdminUpload";
 import ChatGroups from "@/pages/ChatGroups";
@@ -39,7 +42,10 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/login" element={<Login />} />
+        <Route path="/login" element={<RoleSelection />} />
+        <Route path="/login/student" element={<StudentLogin />} />
+        <Route path="/login/teacher" element={<TeacherLogin />} />
+        <Route path="/login/admin" element={<AdminLogin />} />
         <Route path="*" element={
           <RequireAuth>
             <Routes>
