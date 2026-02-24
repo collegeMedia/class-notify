@@ -1,10 +1,11 @@
 
 import { cn } from "@/lib/utils";
 import { User } from "@/lib/types";
-import { LogOut, Menu, X, Bell, ClipboardList, Book, MessageSquare } from "lucide-react";
+import { LogOut, Menu, X, Bell, ClipboardList, Book, MessageSquare, ShieldCheck, PenTool } from "lucide-react";
 import { useState, useEffect } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { logoutCurrentUser } from "@/lib/data";
+import { removeToken } from "@/lib/auth";
 
 interface HeaderProps {
   user: User | null;
@@ -19,7 +20,7 @@ const Header = ({ user }: HeaderProps) => {
     setIsOpen(false);
   }, [location.pathname]);
 
-  const navItems = [
+  const baseNavItems = [
     {
       label: "Announcements",
       href: "/",
@@ -42,7 +43,26 @@ const Header = ({ user }: HeaderProps) => {
     },
   ];
 
+  const teacherNavItem = {
+    label: "Manage",
+    href: "/manage",
+    icon: <PenTool size={18} className="text-blue-500" />,
+  };
+
+  const adminNavItem = {
+    label: "Admin Panel",
+    href: "/admin",
+    icon: <ShieldCheck size={18} className="text-amber-500" />,
+  };
+
+  const navItems = user?.role === "admin" 
+    ? [...baseNavItems, adminNavItem]
+    : (user?.role === "professor" || user?.role === "teacher")
+      ? [...baseNavItems, teacherNavItem]
+      : baseNavItems;
+
   const handleLogout = () => {
+    removeToken();
     logoutCurrentUser();
     navigate("/login");
   };

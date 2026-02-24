@@ -75,8 +75,11 @@ const Lectures = () => {
   };
 
   const canUploadLectures = currentUser.role === "teacher" || 
+                           currentUser.role === "professor" ||
                            currentUser.role === "department_admin" || 
                            currentUser.role === "admin";
+  
+  const uploadUrl = currentUser.role === "admin" ? "/admin/upload#lectures" : "/manage?tab=lectures";
 
   if (isLoading) {
     return (
@@ -124,10 +127,10 @@ const Lectures = () => {
           <h1 className="text-3xl font-semibold">Lectures</h1>
           <div className="flex items-center gap-4">
             {canUploadLectures && (
-              <Link to="/admin/upload#lectures">
+              <Link to={uploadUrl}>
                 <Button variant="outline" size="sm" className="flex items-center gap-1">
                   <Plus size={16} />
-                  <span>Upload Lecture</span>
+                  <span>Create Lecture</span>
                 </Button>
               </Link>
             )}

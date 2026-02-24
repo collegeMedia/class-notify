@@ -1,17 +1,14 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { LockIcon, MailIcon, ShieldIcon } from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
+import { LockIcon, MailIcon, ShieldCheck, ArrowLeft } from "lucide-react";
 import { setCurrentUser } from "@/lib/data";
-import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { login, setToken } from "@/lib/auth";
 import { getCurrentUser } from "@/lib/api";
 
-const Login = () => {
+const AdminLogin = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
   const { toast } = useToast();
   const [formState, setFormState] = useState({
     email: "admin@university.edu",
@@ -33,14 +30,13 @@ const Login = () => {
       });
 
       setToken(tokens.access_token);
-
       const user = await getCurrentUser();
 
-      if (isAdmin && user.role !== "admin") {
+      if (user.role !== "admin") {
         setLoading(false);
         toast({
           title: "Access Denied",
-          description: "You don't have admin privileges.",
+          description: "You don't have administrator privileges.",
           variant: "destructive",
         });
         return;
@@ -49,10 +45,8 @@ const Login = () => {
       setCurrentUser(user);
       
       toast({
-        title: isAdmin ? "Admin Login Successful" : "Login Successful",
-        description: isAdmin
-          ? "You've been logged in with admin privileges."
-          : `Welcome back, ${user.name}!`,
+        title: "Admin Login Successful",
+        description: "You've been logged in with admin privileges.",
       });
       
       navigate("/");
@@ -67,14 +61,23 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background to-blue-50/30">
-      <div className="glass-card w-full max-w-md p-8 animate-fade-in">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background to-amber-50/30">
+      <div className="glass-card w-full max-w-md p-8 animate-fade-in border-2 border-amber-200">
+        <Link 
+          to="/login" 
+          className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors mb-6"
+        >
+          <ArrowLeft size={16} className="mr-1" />
+          Back to role selection
+        </Link>
+
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-400">
-            Campus<span className="font-black">Connect</span>
-          </h1>
+          <div className="inline-flex p-3 rounded-full bg-amber-100 text-amber-600 mb-4">
+            <ShieldCheck size={32} />
+          </div>
+          <h1 className="text-2xl font-bold">Admin Portal</h1>
           <p className="text-muted-foreground mt-2">
-            Sign in to access your student portal
+            Administrator access with full system privileges
           </p>
         </div>
 
@@ -92,7 +95,7 @@ const Login = () => {
                 value={formState.email}
                 onChange={handleChange}
                 className="glass-input pl-10 w-full py-2"
-                placeholder="you@university.edu"
+                placeholder="admin@university.edu"
                 required
               />
             </div>
@@ -122,42 +125,21 @@ const Login = () => {
               <input
                 id="remember"
                 type="checkbox"
-                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
                 defaultChecked
               />
               <label htmlFor="remember" className="ml-2 text-sm text-muted-foreground">
                 Remember me
               </label>
             </div>
-            <a href="#" className="text-sm text-primary hover:text-primary/80 transition-colors">
+            <a href="#" className="text-sm text-amber-600 hover:text-amber-700 transition-colors">
               Forgot password?
             </a>
           </div>
 
-          <div className="flex items-center space-x-2 py-2">
-            <Switch
-              id="admin-mode"
-              checked={isAdmin}
-              onCheckedChange={setIsAdmin}
-            />
-            <label htmlFor="admin-mode" className="text-sm font-medium flex items-center gap-1">
-              <ShieldIcon className="h-4 w-4 text-amber-500" />
-              Login as Admin
-            </label>
-            <Popover>
-              <PopoverTrigger className="text-muted-foreground ml-1">
-                <div className="rounded-full bg-muted h-4 w-4 text-xs flex items-center justify-center">?</div>
-              </PopoverTrigger>
-              <PopoverContent className="text-xs max-w-[200px]">
-                Enable this option to log in with administrator privileges, which allows
-                you to upload and manage institutional data.
-              </PopoverContent>
-            </Popover>
-          </div>
-
           <button
             type="submit"
-            className={`w-full py-2.5 px-4 rounded-xl ${isAdmin ? "bg-amber-500 hover:bg-amber-600" : "bg-primary hover:bg-primary/90"} text-white font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+            className={`w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${
               loading ? "opacity-80 cursor-not-allowed" : ""
             }`}
             disabled={loading}
@@ -171,16 +153,16 @@ const Login = () => {
                 <span>Signing In...</span>
               </span>
             ) : (
-              `Sign In ${isAdmin ? "as Admin" : ""}`
+              "Sign In as Admin"
             )}
           </button>
         </form>
 
         <div className="mt-8 pt-6 border-t border-border text-center">
           <p className="text-sm text-muted-foreground">
-            Don't have an account?{" "}
+            Need assistance?{" "}
             <a href="#" className="text-primary hover:text-primary/80 transition-colors font-medium">
-              Contact your administrator
+              Contact IT support
             </a>
           </p>
         </div>
@@ -189,4 +171,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default AdminLogin;

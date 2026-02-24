@@ -2,20 +2,50 @@ from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 
+# Auth schemas
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    user_id: Optional[str] = None
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+# Department schemas
+class DepartmentBase(BaseModel):
+    name: str
+    code: str
+    description: Optional[str] = None
+
+class DepartmentCreate(DepartmentBase):
+    pass
+
+class Department(DepartmentBase):
+    id: str
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+
 # User schemas
 class UserBase(BaseModel):
     name: str
     email: str
     role: str
     department: str
+    department_id: Optional[str] = None
     avatar: Optional[str] = None
     semester: Optional[str] = None
 
 class UserCreate(UserBase):
-    pass
+    password: str
 
 class User(UserBase):
     id: str
+    is_active: bool
     created_at: datetime
 
     class Config:
@@ -26,6 +56,7 @@ class AnnouncementBase(BaseModel):
     title: str
     content: str
     department: Optional[str] = None
+    department_id: Optional[str] = None
     important: bool = False
     semester: Optional[str] = None
 
@@ -46,6 +77,7 @@ class AssignmentBase(BaseModel):
     description: str
     due_date: str
     department: str
+    department_id: Optional[str] = None
     subject: str
     attachments: Optional[str] = None
     semester: str
@@ -70,6 +102,7 @@ class LectureBase(BaseModel):
     end_time: str
     location: str
     department: str
+    department_id: Optional[str] = None
     subject: str
     materials: Optional[str] = None
     semester: str
@@ -89,6 +122,7 @@ class SubjectBase(BaseModel):
     name: str
     code: str
     department: str
+    department_id: Optional[str] = None
     description: str
     semester: str
     credits: Optional[int] = None
@@ -104,6 +138,19 @@ class Subject(SubjectBase):
     class Config:
         orm_mode = True
 
+# Subject Enrollment schemas
+class SubjectEnrollmentCreate(BaseModel):
+    student_id: str
+    subject_id: str
+
+class SubjectEnrollment(BaseModel):
+    student_id: str
+    subject_id: str
+    enrolled_at: datetime
+
+    class Config:
+        orm_mode = True
+
 # ChatGroup schemas
 class ChatGroupBase(BaseModel):
     name: str
@@ -111,12 +158,19 @@ class ChatGroupBase(BaseModel):
     semester: str
 
 class ChatGroupCreate(ChatGroupBase):
-    teacher_id: str
+    teacher_id: Optional[str] = None
 
 class ChatGroup(ChatGroupBase):
     id: str
     created_at: datetime
+    is_active: bool
     teacher: User
+
+    class Config:
+        orm_mode = True
+
+class ChatGroupWithMembers(ChatGroup):
+    members: List[User]
 
     class Config:
         orm_mode = True

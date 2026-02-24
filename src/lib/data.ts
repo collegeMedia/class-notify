@@ -11,7 +11,7 @@ export const semesters: Semester[] = [
   "Fall 2024"
 ];
 
-// Available departments in the system
+// Available departments in the system (legacy - use useDepartments hook for API data)
 export const departments: Department[] = [
   "Computer Science",
   "Electrical Engineering",
@@ -24,6 +24,20 @@ export const departments: Department[] = [
   "Economics",
   "Psychology"
 ];
+
+// Map department codes to names for backward compatibility
+export const departmentCodeToName: Record<string, string> = {
+  "CS": "Computer Science",
+  "EE": "Electrical Engineering",
+  "ME": "Mechanical Engineering",
+  "BIO": "Biology",
+  "CHEM": "Chemistry",
+  "MATH": "Mathematics",
+  "PHY": "Physics",
+  "BUS": "Business",
+  "ECON": "Economics",
+  "PSY": "Psychology",
+};
 
 // Mock subjects data
 export const subjects = [
@@ -77,52 +91,71 @@ export const subjects = [
   }
 ];
 
-// Mock users data
+// Mock users data (legacy - use API for real data)
 export const users = [
   {
-    id: "1",
+    id: "4e428279-d098-491b-8a13-dfa29a93cff1",
     name: "John Doe",
     email: "john.doe@university.edu",
     role: "student" as UserRole,
-    department: "Computer Science",
+    department: "CS",
     avatar: undefined,
-    semester: "Spring 2024" as Semester
+    semester: "Spring 2026" as Semester
   },
   {
-    id: "2",
-    name: "Jane Smith",
-    email: "jane.smith@university.edu",
-    role: "teacher" as UserRole,
-    department: "Computer Science",
+    id: "c016bac3-5f1f-4677-99b8-06fe6b63d38d",
+    name: "Dr. John Smith",
+    email: "john.smith@university.edu",
+    role: "professor" as UserRole,
+    department: "CS",
     avatar: undefined,
-    associatedSemesters: ["Spring 2024", "Fall 2024"] as Semester[]
+    associatedSemesters: ["Spring 2026", "Fall 2025"] as Semester[]
   },
   {
-    id: "3",
+    id: "3fb6cb18-7671-45ff-8ca5-865d2fa8d698",
     name: "Admin User",
     email: "admin@university.edu",
     role: "admin" as UserRole,
-    department: "Computer Science",
+    department: "CS",
     avatar: undefined
   }
 ];
 
 // dummy (simulated) current user object 
 export let currentUser: User = {
-  id: "1",
+  id: "4e428279-d098-491b-8a13-dfa29a93cff1",
   name: "John Doe",
   email: "john.doe@university.edu",
   role: "student",
-  department: "Computer Science",
+  department: "CS",
+  department_id: "d903cce6-a342-432e-a479-c933ced224d4",
   avatar: undefined,
-  semester: "Spring 2024"
+  semester: "Spring 2026",
+  is_active: true,
+  created_at: "2026-02-23T18:33:28.069907",
+  createdAt: "2026-02-23T18:33:28.069907"
 };
 
 export function setCurrentUser(user: User) {
   currentUser = user;
+  localStorage.setItem("currentUser", JSON.stringify(user));
+}
+
+export function loadCurrentUser(): User | null {
+  const stored = localStorage.getItem("currentUser");
+  if (stored) {
+    try {
+      const user = JSON.parse(stored);
+      currentUser = user;
+      return user;
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
 
 export function logoutCurrentUser() {
-  // You could preserve guest properties if needed.
+  localStorage.removeItem("currentUser");
   currentUser = {} as User;
 }

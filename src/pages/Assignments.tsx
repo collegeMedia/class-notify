@@ -75,8 +75,11 @@ const Assignments = () => {
   };
 
   const canUploadAssignments = currentUser.role === "teacher" || 
+                               currentUser.role === "professor" ||
                                currentUser.role === "department_admin" || 
                                currentUser.role === "admin";
+  
+  const uploadUrl = currentUser.role === "admin" ? "/admin/upload#assignments" : "/manage?tab=assignments";
 
   if (isLoading) {
     return (
@@ -115,10 +118,10 @@ const Assignments = () => {
           <h1 className="text-3xl font-semibold">Assignments</h1>
           <div className="flex items-center gap-4">
             {canUploadAssignments && (
-              <Link to="/admin/upload#assignments">
+              <Link to={uploadUrl}>
                 <Button variant="outline" size="sm" className="flex items-center gap-1">
                   <Plus size={16} />
-                  <span>Upload Assignment</span>
+                  <span>Create Assignment</span>
                 </Button>
               </Link>
             )}
