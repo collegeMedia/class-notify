@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -11,12 +11,14 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Clock, Upload } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { semesters, subjects, users } from "@/lib/data";
+import { semesters, subjects, users, currentUser } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, parse } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useDepartments } from "@/hooks/use-departments";
-import { createLecture } from "@/lib/api";
+import { createLecture, updateLecture, getLectureById, getSubjectsByProfessor } from "@/lib/api";
+import { Subject } from "@/lib/types";
+import { useQuery } from "@tanstack/react-query";
 
 const formSchema = z.object({
   title: z.string().min(3, {
@@ -54,20 +56,46 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-const LectureUploadForm = () => {
+interface LectureUploadFormProps {
+  editId?: string | null;
+}
+
+const LectureUploadForm = ({ editId }: LectureUploadFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("");
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("");
   const [selectedSemester, setSelectedSemester] = useState<string>("");
   const { toast } = useToast();
   const { departments, isLoading: isDepartmentsLoading } = useDepartments();
+  
+  const isTeacher = currentUser.role === "professor" || currentUser.role === "teacher";
+  const isAdmin = currentUser.role === "admin";
+  const isEditMode = !!editId;
+  
+  const { data: existingLecture, isLoading: isLoadingLecture } = useQuery({
+    queryKey: ['lecture', editId],
+    queryFn: () => getLectureById(editId!),
+    enabled: !!editId,
+  });
+  
+  const { data: teacherSubjects, isLoading: isLoadingTeacherSubjects } = useQuery({
+    queryKey: ['teacherSubjects', currentUser.id],
+    queryFn: () => getSubjectsByProfessor(currentUser.id),
+    enabled: isTeacher && !isAdmin,
+  });
 
-  // Filter subjects based on selected department and semester
-  const filteredSubjects = subjects.filter(
-    (subject) => 
-      subject.department === selectedDepartment && 
-      (!selectedSemester || subject.semester === selectedSemester)
-  );
+  // Filter subjects based on selected department, semester, and user role
+  const filteredSubjects = isTeacher && !isAdmin && teacherSubjects
+    ? teacherSubjects.filter(
+        (subject) => 
+          subject.department === selectedDepartment && 
+          (!selectedSemester || subject.semester === selectedSemester)
+      )
+    : subjects.filter(
+        (subject) => 
+          subject.department === selectedDepartment && 
+          (!selectedSemester || subject.semester === selectedSemester)
+      );
 
   // Filter users who can be professors (teachers)
   const professors = users.filter(
@@ -92,6 +120,27 @@ const LectureUploadForm = () => {
       semester: "",
     },
   });
+
+  useEffect(() => {
+    if (existingLecture) {
+      form.reset({
+        title: existingLecture.title,
+        description: existingLecture.description,
+        date: existingLecture.date ? parse(existingLecture.date, "yyyy-MM-dd", new Date()) : undefined,
+        startTime: existingLecture.startTime || existingLecture.start_time || "",
+        endTime: existingLecture.endTime || existingLecture.end_time || "",
+        location: existingLecture.location,
+        department: existingLecture.department,
+        subject: existingLecture.subject,
+        professorId: existingLecture.professor.id,
+        materials: existingLecture.materials?.join(", ") || "",
+        semester: existingLecture.semester,
+      });
+      setSelectedDepartment(existingLecture.department);
+      setSelectedDepartmentId(existingLecture.department_id || "");
+      setSelectedSemester(existingLecture.semester);
+    }
+  }, [existingLecture, form]);
 
   // Handle department change to reset dependent fields
   const handleDepartmentChange = (value: string) => {
@@ -120,7 +169,7 @@ const LectureUploadForm = () => {
     setIsSubmitting(true);
     
     try {
-      await createLecture({
+      const lectureData = {
         title: data.title,
         description: data.description,
         date: format(data.date, "yyyy-MM-dd"),
@@ -133,21 +182,38 @@ const LectureUploadForm = () => {
         professor: users.find(u => u.id === data.professorId)!,
         materials: data.materials ? data.materials.split(",").map(m => m.trim()) : undefined,
         semester: data.semester,
-      });
-      
-      toast({
-        title: "Lecture scheduled",
-        description: `Lecture "${data.title}" has been successfully scheduled for ${data.semester}.`,
-      });
-      
-      form.reset();
-      setSelectedDepartment("");
-      setSelectedDepartmentId("");
-      setSelectedSemester("");
+      };
+
+      if (isEditMode && editId) {
+        await updateLecture(editId, lectureData);
+        toast({
+          title: "Lecture updated",
+          description: `Lecture "${data.title}" has been successfully updated.`,
+        });
+      } else {
+        await createLecture(lectureData);
+        toast({
+          title: "Lecture scheduled",
+          description: `Lecture "${data.title}" has been successfully scheduled for ${data.semester}.`,
+        });
+        form.reset();
+        setSelectedDepartment("");
+        setSelectedDepartmentId("");
+        setSelectedSemester("");
+      }
     } catch (error) {
+      let errorMessage = "Failed to schedule lecture";
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        if (error.message.includes("403") || error.message.includes("permission")) {
+          errorMessage = "You don't have permission to create lectures for this subject. You can only create lectures for subjects you teach.";
+        }
+      }
+      
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to schedule lecture",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -427,8 +493,8 @@ const LectureUploadForm = () => {
         </div>
         
         <div className="flex justify-end">
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Scheduling..." : "Schedule Lecture"}
+          <Button type="submit" disabled={isSubmitting || isLoadingLecture}>
+            {isSubmitting ? (isEditMode ? "Updating..." : "Scheduling...") : (isEditMode ? "Update Lecture" : "Schedule Lecture")}
           </Button>
         </div>
       </form>

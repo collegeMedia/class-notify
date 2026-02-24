@@ -1,10 +1,25 @@
 
 import { Assignment } from "@/lib/types";
-import { CalendarIcon, ClockIcon, FileIcon, PencilIcon } from "lucide-react";
+import { CalendarIcon, ClockIcon, FileIcon, PencilIcon, Trash2Icon } from "lucide-react";
 import { format, formatDistanceToNow, isPast } from "date-fns";
 import DepartmentBadge from "./DepartmentBadge";
 import { Link } from "react-router-dom";
 import { Button } from "./ui/button";
+import { useState } from "react";
+import { deleteAssignment } from "@/lib/api";
+import { toast } from "sonner";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { currentUser } from "@/lib/data";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface AssignmentCardProps {
   assignment: Assignment;
@@ -12,6 +27,22 @@ interface AssignmentCardProps {
 }
 
 const AssignmentCard = ({ assignment, isEditable = false }: AssignmentCardProps) => {
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const queryClient = useQueryClient();
+  const isAdmin = currentUser.role === "admin";
+  const editUrl = isAdmin ? "/admin/upload" : "/manage";
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteAssignment(assignment.id),
+    onSuccess: () => {
+      toast.success("Assignment deleted successfully");
+      queryClient.invalidateQueries({ queryKey: ['assignments'] });
+      setShowDeleteDialog(false);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to delete assignment");
+    },
+  });
   const dueDateString = assignment.dueDate || assignment.due_date || new Date().toISOString();
   const createdDateString = assignment.createdAt || assignment.created_at || new Date().toISOString();
   const dueDate = new Date(dueDateString);
@@ -32,11 +63,23 @@ const AssignmentCard = ({ assignment, isEditable = false }: AssignmentCardProps)
         
         <div className="flex items-center gap-2">
           {isEditable && (
-            <Link to={`/admin/upload?edit=assignment&id=${assignment.id}`}>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <PencilIcon size={16} />
+            <>
+              <Link to={`${editUrl}?edit=assignment&id=${assignment.id}`}>
+                <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit assignment">
+                  <PencilIcon size={16} />
+                </Button>
+              </Link>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50" 
+                onClick={() => setShowDeleteDialog(true)}
+                disabled={deleteMutation.isPending}
+                title="Delete assignment"
+              >
+                <Trash2Icon size={16} />
               </Button>
-            </Link>
+            </>
           )}
           
           <div className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -79,6 +122,27 @@ const AssignmentCard = ({ assignment, isEditable = false }: AssignmentCardProps)
           </div>
         </div>
       )}
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Assignment</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{assignment.title}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteMutation.mutate()}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

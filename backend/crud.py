@@ -103,6 +103,33 @@ def create_assignment(db: Session, assignment: schemas.AssignmentCreate):
     db.refresh(db_assignment)
     return db_assignment
 
+def update_assignment(db: Session, assignment_id: str, assignment: schemas.AssignmentCreate):
+    db_assignment = get_assignment(db, assignment_id)
+    if not db_assignment:
+        return None
+    
+    db_assignment.title = assignment.title
+    db_assignment.description = assignment.description
+    db_assignment.due_date = assignment.due_date
+    db_assignment.department = assignment.department
+    db_assignment.department_id = assignment.department_id
+    db_assignment.subject = assignment.subject
+    db_assignment.attachments = assignment.attachments
+    db_assignment.semester = assignment.semester
+    
+    db.commit()
+    db.refresh(db_assignment)
+    return db_assignment
+
+def delete_assignment(db: Session, assignment_id: str):
+    db_assignment = get_assignment(db, assignment_id)
+    if not db_assignment:
+        return False
+    
+    db.delete(db_assignment)
+    db.commit()
+    return True
+
 # Lecture operations
 def get_lecture(db: Session, lecture_id: str):
     return db.query(models.Lecture).filter(models.Lecture.id == lecture_id).first()
@@ -148,9 +175,56 @@ def create_lecture(db: Session, lecture: schemas.LectureCreate):
     db.refresh(db_lecture)
     return db_lecture
 
+def update_lecture(db: Session, lecture_id: str, lecture: schemas.LectureCreate):
+    db_lecture = get_lecture(db, lecture_id)
+    if not db_lecture:
+        return None
+    
+    db_lecture.title = lecture.title
+    db_lecture.description = lecture.description
+    db_lecture.date = lecture.date
+    db_lecture.start_time = lecture.start_time
+    db_lecture.end_time = lecture.end_time
+    db_lecture.location = lecture.location
+    db_lecture.department = lecture.department
+    db_lecture.department_id = lecture.department_id
+    db_lecture.subject = lecture.subject
+    db_lecture.professor_id = lecture.professor_id
+    db_lecture.materials = lecture.materials
+    db_lecture.semester = lecture.semester
+    
+    db.commit()
+    db.refresh(db_lecture)
+    return db_lecture
+
+def delete_lecture(db: Session, lecture_id: str):
+    db_lecture = get_lecture(db, lecture_id)
+    if not db_lecture:
+        return False
+    
+    db.delete(db_lecture)
+    db.commit()
+    return True
+
 # Subject operations
 def get_subject(db: Session, subject_id: str):
     return db.query(models.Subject).filter(models.Subject.id == subject_id).first()
+
+def get_subject_by_code(db: Session, code: str):
+    return db.query(models.Subject).filter(models.Subject.code == code).first()
+
+def get_subject_by_name(db: Session, name: str):
+    return db.query(models.Subject).filter(models.Subject.name == name).first()
+
+def is_professor_of_subject(db: Session, user_id: str, subject_code_or_name: str) -> bool:
+    subject = get_subject_by_code(db, subject_code_or_name)
+    if not subject:
+        subject = get_subject_by_name(db, subject_code_or_name)
+    
+    if not subject:
+        return False
+    
+    return subject.professor_id == user_id
 
 def get_subjects(
     db: Session, 

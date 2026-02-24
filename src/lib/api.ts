@@ -154,6 +154,31 @@ export const createAssignment = (assignment: Omit<Assignment, "id" | "createdAt"
   });
 };
 
+export const updateAssignment = (id: string, assignment: Omit<Assignment, "id" | "createdAt" | "created_at">): Promise<Assignment> => {
+  const payload = {
+    title: assignment.title,
+    description: assignment.description,
+    due_date: assignment.dueDate || assignment.due_date,
+    department: assignment.department,
+    department_id: assignment.department_id,
+    subject: assignment.subject,
+    author_id: assignment.author.id || assignment.author_id,
+    attachments: assignment.attachments?.join(",") || null,
+    semester: assignment.semester,
+  };
+  
+  return fetchAPI<Assignment>(`/assignments/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+};
+
+export const deleteAssignment = (id: string): Promise<{message: string}> => {
+  return fetchAPI<{message: string}>(`/assignments/${id}`, {
+    method: "DELETE",
+  });
+};
+
 // Lecture related API calls
 export const getLectures = (
   department?: Department, 
@@ -194,6 +219,34 @@ export const createLecture = (lecture: Omit<Lecture, "id">): Promise<Lecture> =>
   });
 };
 
+export const updateLecture = (id: string, lecture: Omit<Lecture, "id">): Promise<Lecture> => {
+  const payload = {
+    title: lecture.title,
+    description: lecture.description,
+    date: lecture.date,
+    start_time: lecture.startTime || lecture.start_time,
+    end_time: lecture.endTime || lecture.end_time,
+    location: lecture.location,
+    department: lecture.department,
+    department_id: lecture.department_id,
+    subject: lecture.subject,
+    professor_id: lecture.professor.id || lecture.professor_id,
+    materials: lecture.materials?.join(",") || null,
+    semester: lecture.semester,
+  };
+  
+  return fetchAPI<Lecture>(`/lectures/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+};
+
+export const deleteLecture = (id: string): Promise<{message: string}> => {
+  return fetchAPI<{message: string}>(`/lectures/${id}`, {
+    method: "DELETE",
+  });
+};
+
 // Subject related API calls
 export const getSubjects = (department?: Department, semester?: Semester): Promise<Subject[]> => {
   let query = "";
@@ -205,6 +258,10 @@ export const getSubjects = (department?: Department, semester?: Semester): Promi
 
 export const getSubjectById = (id: string): Promise<Subject> => {
   return fetchAPI<Subject>(`/subjects/${id}`);
+};
+
+export const getSubjectsByProfessor = (professorId: string): Promise<Subject[]> => {
+  return fetchAPI<Subject[]>(`/subjects/professor/${professorId}`);
 };
 
 export const createSubject = (subject: Omit<Subject, "id">): Promise<Subject> => {

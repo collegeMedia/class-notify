@@ -1,10 +1,25 @@
 
 import { Lecture } from "@/lib/types";
-import { ClockIcon, FileIcon, MapPinIcon, PencilIcon } from "lucide-react";
+import { ClockIcon, FileIcon, MapPinIcon, PencilIcon, Trash2Icon } from "lucide-react";
 import DepartmentBadge from "./DepartmentBadge";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { Button } from "./ui/button";
+import { useState } from "react";
+import { deleteLecture } from "@/lib/api";
+import { toast } from "sonner";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { currentUser } from "@/lib/data";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface LectureCardProps {
   lecture: Lecture;
@@ -13,6 +28,22 @@ interface LectureCardProps {
 }
 
 const LectureCard = ({ lecture, isToday = true, isEditable = false }: LectureCardProps) => {
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const queryClient = useQueryClient();
+  const isAdmin = currentUser.role === "admin";
+  const editUrl = isAdmin ? "/admin/upload" : "/manage";
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteLecture(lecture.id),
+    onSuccess: () => {
+      toast.success("Lecture deleted successfully");
+      queryClient.invalidateQueries({ queryKey: ['lectures'] });
+      setShowDeleteDialog(false);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to delete lecture");
+    },
+  });
   const startTime = lecture.startTime || lecture.start_time || "00:00";
   const endTime = lecture.endTime || lecture.end_time || "00:00";
   const lectureDate = new Date(`${lecture.date}T${startTime}`);
@@ -35,11 +66,23 @@ const LectureCard = ({ lecture, isToday = true, isEditable = false }: LectureCar
         </div>
         
         {isEditable && (
-          <Link to={`/admin/upload?edit=lecture&id=${lecture.id}`}>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <PencilIcon size={16} />
+          <div className="flex items-center gap-2">
+            <Link to={`${editUrl}?edit=lecture&id=${lecture.id}`}>
+              <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit lecture">
+                <PencilIcon size={16} />
+              </Button>
+            </Link>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50" 
+              onClick={() => setShowDeleteDialog(true)}
+              disabled={deleteMutation.isPending}
+              title="Delete lecture"
+            >
+              <Trash2Icon size={16} />
             </Button>
-          </Link>
+          </div>
         )}
       </div>
       
@@ -82,6 +125,27 @@ const LectureCard = ({ lecture, isToday = true, isEditable = false }: LectureCar
           </div>
         </div>
       )}
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Lecture</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{lecture.title}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteMutation.mutate()}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

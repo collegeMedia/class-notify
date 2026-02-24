@@ -52,8 +52,14 @@ The API will be available at http://localhost:8000 and the API documentation at 
   - Subject teacher is automatically the group admin
   - Only enrolled students can be group members
   - Members can send and view messages
-- **Assignment Tracking**: Create and manage assignments with due dates
-- **Lecture Scheduling**: Schedule and manage lectures
+- **Assignment Tracking**: Create, edit, and delete assignments with due dates
+  - Teachers can only create/edit/delete assignments for subjects they teach
+  - Teachers can only modify assignments they created
+  - Admins have full access to create/edit/delete assignments for any subject
+- **Lecture Scheduling**: Schedule, edit, and delete lectures
+  - Teachers can only schedule/edit/delete lectures for subjects they teach
+  - Teachers can only modify lectures they created
+  - Admins have full access to schedule/edit/delete lectures for any subject
 - **Announcements System**: Department-wide announcements
 - **User Management**: Admin-only user creation and management
 
@@ -86,7 +92,8 @@ The API will be available at http://localhost:8000 and the API documentation at 
 ### Teacher Account
 - Email: `john.smith@university.edu` or `jane.doe@university.edu`
 - Password: `password123`
-- Access: View content, manage subjects and chat groups
+- Access: Create/edit/delete assignments and lectures for their subjects, manage chat groups
+- Features: Dedicated "Manage" page at `/manage` for content creation and editing
 
 ### Student Account
 - Email: `john.doe@university.edu`
@@ -134,3 +141,33 @@ Each portal validates the user's role and redirects appropriately.
 **Messages:**
 - `POST /messages/` - Send message (Members only)
 - `GET /messages/{chat_group_id}` - Get messages (Members only)
+
+**Assignments:**
+- `POST /assignments/` - Create assignment (Teacher/Admin only, subject permission required)
+- `GET /assignments/` - Get all assignments
+- `GET /assignments/{assignment_id}` - Get specific assignment
+- `PUT /assignments/{assignment_id}` - Update assignment (Creator/Admin only)
+- `DELETE /assignments/{assignment_id}` - Delete assignment (Creator/Admin only)
+
+**Lectures:**
+- `POST /lectures/` - Create lecture (Teacher/Admin only, subject permission required)
+- `GET /lectures/` - Get all lectures
+- `GET /lectures/{lecture_id}` - Get specific lecture
+- `PUT /lectures/{lecture_id}` - Update lecture (Creator/Admin only)
+- `DELETE /lectures/{lecture_id}` - Delete lecture (Creator/Admin only)
+
+**Subjects:**
+- `GET /subjects/professor/{professor_id}` - Get subjects taught by a professor
+
+## Teacher Workflow
+
+Teachers have a dedicated management interface for creating and managing content:
+
+1. **Access**: Navigate to "Manage" in the header (or click "Create Assignment"/"Create Lecture" buttons)
+2. **Create Content**: Use the forms to create assignments and lectures for subjects you teach
+3. **Edit Content**: Click the edit (pencil) icon on any assignment/lecture card you created
+4. **Delete Content**: Click the delete (trash) icon with confirmation dialog
+5. **Permissions**: 
+   - Can only create content for subjects they teach
+   - Can only edit/delete content they created
+   - Subject dropdown automatically filtered to show only their subjects

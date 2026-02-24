@@ -10,6 +10,7 @@ import TeacherLogin from "@/pages/TeacherLogin";
 import AdminLogin from "@/pages/AdminLogin";
 import NotFound from "@/pages/NotFound";
 import AdminUpload from "@/pages/AdminUpload";
+import TeacherManage from "@/pages/TeacherManage";
 import ChatGroups from "@/pages/ChatGroups";
 import ChatRoom from "@/pages/ChatRoom";
 import { isAuthenticated } from "@/lib/auth";
@@ -39,6 +40,21 @@ function RequireAdmin({ children }: { children: JSX.Element }) {
   return children;
 }
 
+function RequireTeacher({ children }: { children: JSX.Element }) {
+  const location = useLocation();
+  const userIsLoggedIn = isAuthenticated() && currentUser && currentUser.name && currentUser.email;
+  
+  if (!userIsLoggedIn) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  if (currentUser.role !== "professor" && currentUser.role !== "teacher" && currentUser.role !== "admin") {
+    return <Navigate to="/" replace />;
+  }
+  
+  return children;
+}
+
 function App() {
   useEffect(() => {
     loadCurrentUser();
@@ -61,6 +77,16 @@ function App() {
                 <RequireAdmin>
                   <AdminUpload />
                 </RequireAdmin>
+              } />
+              <Route path="/admin/upload" element={
+                <RequireAdmin>
+                  <AdminUpload />
+                </RequireAdmin>
+              } />
+              <Route path="/manage" element={
+                <RequireTeacher>
+                  <TeacherManage />
+                </RequireTeacher>
               } />
               <Route path="/chat-groups" element={<ChatGroups />} />
               <Route path="/chat/:groupId" element={<ChatRoom />} />

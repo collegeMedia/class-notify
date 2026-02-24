@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -13,10 +13,12 @@ import { CalendarIcon, Upload } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { subjects, semesters, currentUser } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, parse } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useDepartments } from "@/hooks/use-departments";
-import { createAssignment } from "@/lib/api";
+import { createAssignment, updateAssignment, getAssignmentById, getSubjectsByProfessor } from "@/lib/api";
+import { Subject } from "@/lib/types";
+import { useQuery } from "@tanstack/react-query";
 
 const formSchema = z.object({
   title: z.string().min(3, {
@@ -42,12 +44,32 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-const AssignmentUploadForm = () => {
+interface AssignmentUploadFormProps {
+  editId?: string | null;
+}
+
+const AssignmentUploadForm = ({ editId }: AssignmentUploadFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("");
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("");
   const { toast } = useToast();
   const { departments, isLoading: isDepartmentsLoading } = useDepartments();
+  
+  const isTeacher = currentUser.role === "professor" || currentUser.role === "teacher";
+  const isAdmin = currentUser.role === "admin";
+  const isEditMode = !!editId;
+  
+  const { data: existingAssignment, isLoading: isLoadingAssignment } = useQuery({
+    queryKey: ['assignment', editId],
+    queryFn: () => getAssignmentById(editId!),
+    enabled: !!editId,
+  });
+  
+  const { data: teacherSubjects, isLoading: isLoadingTeacherSubjects } = useQuery({
+    queryKey: ['teacherSubjects', currentUser.id],
+    queryFn: () => getSubjectsByProfessor(currentUser.id),
+    enabled: isTeacher && !isAdmin,
+  });
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -62,10 +84,31 @@ const AssignmentUploadForm = () => {
     },
   });
 
-  // Filter subjects based on selected department
-  const filteredSubjects = subjects.filter(
-    (subject) => subject.department === selectedDepartment
-  );
+  useEffect(() => {
+    if (existingAssignment) {
+      const dueDateStr = existingAssignment.dueDate || existingAssignment.due_date;
+      form.reset({
+        title: existingAssignment.title,
+        description: existingAssignment.description,
+        dueDate: dueDateStr ? parse(dueDateStr, "yyyy-MM-dd", new Date()) : undefined,
+        department: existingAssignment.department,
+        subject: existingAssignment.subject,
+        semester: existingAssignment.semester,
+        attachments: existingAssignment.attachments?.join(", ") || "",
+      });
+      setSelectedDepartment(existingAssignment.department);
+      setSelectedDepartmentId(existingAssignment.department_id || "");
+    }
+  }, [existingAssignment, form]);
+
+  // Filter subjects based on selected department and user role
+  const filteredSubjects = isTeacher && !isAdmin && teacherSubjects
+    ? teacherSubjects.filter(
+        (subject) => subject.department === selectedDepartment
+      )
+    : subjects.filter(
+        (subject) => subject.department === selectedDepartment
+      );
 
   // Handle department change to reset subject field
   const handleDepartmentChange = (value: string) => {
@@ -80,7 +123,7 @@ const AssignmentUploadForm = () => {
     setIsSubmitting(true);
     
     try {
-      await createAssignment({
+      const assignmentData = {
         title: data.title,
         description: data.description,
         dueDate: format(data.dueDate, "yyyy-MM-dd"),
@@ -90,20 +133,37 @@ const AssignmentUploadForm = () => {
         author: currentUser,
         semester: data.semester,
         attachments: data.attachments ? data.attachments.split(",").map(a => a.trim()) : undefined,
-      });
-      
-      toast({
-        title: "Assignment created",
-        description: `Assignment "${data.title}" has been successfully created.`,
-      });
-      
-      form.reset();
-      setSelectedDepartment("");
-      setSelectedDepartmentId("");
+      };
+
+      if (isEditMode && editId) {
+        await updateAssignment(editId, assignmentData);
+        toast({
+          title: "Assignment updated",
+          description: `Assignment "${data.title}" has been successfully updated.`,
+        });
+      } else {
+        await createAssignment(assignmentData);
+        toast({
+          title: "Assignment created",
+          description: `Assignment "${data.title}" has been successfully created.`,
+        });
+        form.reset();
+        setSelectedDepartment("");
+        setSelectedDepartmentId("");
+      }
     } catch (error) {
+      let errorMessage = "Failed to create assignment";
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        if (error.message.includes("403") || error.message.includes("permission")) {
+          errorMessage = "You don't have permission to create assignments for this subject. You can only create assignments for subjects you teach.";
+        }
+      }
+      
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create assignment",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -296,8 +356,8 @@ const AssignmentUploadForm = () => {
         </div>
         
         <div className="flex justify-end">
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Creating..." : "Create Assignment"}
+          <Button type="submit" disabled={isSubmitting || isLoadingAssignment}>
+            {isSubmitting ? (isEditMode ? "Updating..." : "Creating...") : (isEditMode ? "Update Assignment" : "Create Assignment")}
           </Button>
         </div>
       </form>

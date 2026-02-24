@@ -1,7 +1,7 @@
 
 import { cn } from "@/lib/utils";
 import { User } from "@/lib/types";
-import { LogOut, Menu, X, Bell, ClipboardList, Book, MessageSquare, ShieldCheck } from "lucide-react";
+import { LogOut, Menu, X, Bell, ClipboardList, Book, MessageSquare, ShieldCheck, PenTool } from "lucide-react";
 import { useState, useEffect } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { logoutCurrentUser } from "@/lib/data";
@@ -43,6 +43,12 @@ const Header = ({ user }: HeaderProps) => {
     },
   ];
 
+  const teacherNavItem = {
+    label: "Manage",
+    href: "/manage",
+    icon: <PenTool size={18} className="text-blue-500" />,
+  };
+
   const adminNavItem = {
     label: "Admin Panel",
     href: "/admin",
@@ -51,7 +57,9 @@ const Header = ({ user }: HeaderProps) => {
 
   const navItems = user?.role === "admin" 
     ? [...baseNavItems, adminNavItem]
-    : baseNavItems;
+    : (user?.role === "professor" || user?.role === "teacher")
+      ? [...baseNavItems, teacherNavItem]
+      : baseNavItems;
 
   const handleLogout = () => {
     removeToken();
