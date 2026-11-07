@@ -12,7 +12,12 @@ from database import get_db
 
 load_dotenv()
 
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-this-in-production")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError(
+        "SECRET_KEY is not set. Add it to backend/.env "
+        "(generate one with: python -c \"import secrets; print(secrets.token_urlsafe(64))\")"
+    )
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 
@@ -74,6 +79,19 @@ def get_current_admin_user(current_user = Depends(get_current_user)):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions. Admin access required."
+        )
+    return current_user
+
+STAFF_ROLES = {"admin", "professor", "teacher"}
+
+def is_staff(user) -> bool:
+    return user.role in STAFF_ROLES
+
+def get_current_staff_user(current_user = Depends(get_current_user)):
+    if not is_staff(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions. Teacher or admin access required."
         )
     return current_user
 

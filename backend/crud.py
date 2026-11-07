@@ -86,15 +86,16 @@ def get_assignments(
         
     return query.offset(skip).limit(limit).all()
 
-def create_assignment(db: Session, assignment: schemas.AssignmentCreate):
+def create_assignment(db: Session, assignment: schemas.AssignmentCreate, subject: models.Subject, author_id: str):
     db_assignment = models.Assignment(
         title=assignment.title,
         description=assignment.description,
         due_date=assignment.due_date,
         department=assignment.department,
         department_id=assignment.department_id,
-        subject=assignment.subject,
-        author_id=assignment.author_id,
+        subject=subject.name,
+        subject_id=subject.id,
+        author_id=author_id,
         attachments=assignment.attachments,
         semester=assignment.semester
     )
@@ -103,7 +104,7 @@ def create_assignment(db: Session, assignment: schemas.AssignmentCreate):
     db.refresh(db_assignment)
     return db_assignment
 
-def update_assignment(db: Session, assignment_id: str, assignment: schemas.AssignmentCreate):
+def update_assignment(db: Session, assignment_id: str, assignment: schemas.AssignmentCreate, subject: models.Subject, author_id: str):
     db_assignment = get_assignment(db, assignment_id)
     if not db_assignment:
         return None
@@ -113,7 +114,9 @@ def update_assignment(db: Session, assignment_id: str, assignment: schemas.Assig
     db_assignment.due_date = assignment.due_date
     db_assignment.department = assignment.department
     db_assignment.department_id = assignment.department_id
-    db_assignment.subject = assignment.subject
+    db_assignment.subject = subject.name
+    db_assignment.subject_id = subject.id
+    db_assignment.author_id = author_id
     db_assignment.attachments = assignment.attachments
     db_assignment.semester = assignment.semester
     
@@ -155,7 +158,7 @@ def get_lectures(
         
     return query.offset(skip).limit(limit).all()
 
-def create_lecture(db: Session, lecture: schemas.LectureCreate):
+def create_lecture(db: Session, lecture: schemas.LectureCreate, subject: models.Subject, professor_id: str):
     db_lecture = models.Lecture(
         title=lecture.title,
         description=lecture.description,
@@ -165,8 +168,9 @@ def create_lecture(db: Session, lecture: schemas.LectureCreate):
         location=lecture.location,
         department=lecture.department,
         department_id=lecture.department_id,
-        subject=lecture.subject,
-        professor_id=lecture.professor_id,
+        subject=subject.name,
+        subject_id=subject.id,
+        professor_id=professor_id,
         materials=lecture.materials,
         semester=lecture.semester
     )
@@ -175,7 +179,7 @@ def create_lecture(db: Session, lecture: schemas.LectureCreate):
     db.refresh(db_lecture)
     return db_lecture
 
-def update_lecture(db: Session, lecture_id: str, lecture: schemas.LectureCreate):
+def update_lecture(db: Session, lecture_id: str, lecture: schemas.LectureCreate, subject: models.Subject, professor_id: str):
     db_lecture = get_lecture(db, lecture_id)
     if not db_lecture:
         return None
@@ -188,8 +192,9 @@ def update_lecture(db: Session, lecture_id: str, lecture: schemas.LectureCreate)
     db_lecture.location = lecture.location
     db_lecture.department = lecture.department
     db_lecture.department_id = lecture.department_id
-    db_lecture.subject = lecture.subject
-    db_lecture.professor_id = lecture.professor_id
+    db_lecture.subject = subject.name
+    db_lecture.subject_id = subject.id
+    db_lecture.professor_id = professor_id
     db_lecture.materials = lecture.materials
     db_lecture.semester = lecture.semester
     
@@ -216,15 +221,44 @@ def get_subject_by_code(db: Session, code: str):
 def get_subject_by_name(db: Session, name: str):
     return db.query(models.Subject).filter(models.Subject.name == name).first()
 
-def is_professor_of_subject(db: Session, user_id: str, subject_code_or_name: str) -> bool:
-    subject = get_subject_by_code(db, subject_code_or_name)
-    if not subject:
-        subject = get_subject_by_name(db, subject_code_or_name)
-    
-    if not subject:
-        return False
-    
-    return subject.professor_id == user_id
+class SubjectLookupError(Exception):
+    pass
+
+def resolve_subject(db: Session, subject_id: Optional[str] = None, subject_ref: Optional[str] = None) -> models.Subject:
+    """Find exactly one subject by id, else by (unique) code, else by name.
+
+    Raises SubjectLookupError if nothing matches or a name matches several subjects.
+    """
+    if subject_id:
+        subject = get_subject(db, subject_id)
+        if not subject:
+            raise SubjectLookupError(f"Subject id '{subject_id}' not found")
+        return subject
+    if not subject_ref:
+        raise SubjectLookupError("Provide subject_id or subject")
+    subject = get_subject_by_code(db, subject_ref)
+    if subject:
+        return subject
+    matches = db.query(models.Subject).filter(models.Subject.name == subject_ref).limit(2).all()
+    if not matches:
+        raise SubjectLookupError(f"Subject '{subject_ref}' not found")
+    if len(matches) > 1:
+        raise SubjectLookupError(
+            f"Several subjects are named '{subject_ref}'; send subject_id or the subject code instead"
+        )
+    return matches[0]
+
+def subject_of_item(db: Session, item) -> Optional[models.Subject]:
+    """The subject an assignment/lecture belongs to (falls back to its text field for old rows)."""
+    if item.subject_id:
+        return get_subject(db, item.subject_id)
+    try:
+        return resolve_subject(db, subject_ref=item.subject)
+    except SubjectLookupError:
+        return None
+
+def is_professor_of_subject(db: Session, user_id: str, subject: Optional[models.Subject]) -> bool:
+    return subject is not None and subject.professor_id == user_id
 
 def get_subjects(
     db: Session, 
@@ -281,11 +315,11 @@ def get_announcements(
         
     return query.offset(skip).limit(limit).all()
 
-def create_announcement(db: Session, announcement: schemas.AnnouncementCreate):
+def create_announcement(db: Session, announcement: schemas.AnnouncementCreate, author_id: str):
     db_announcement = models.Announcement(
         title=announcement.title,
         content=announcement.content,
-        author_id=announcement.author_id,
+        author_id=author_id,
         department=announcement.department,
         department_id=announcement.department_id,
         important=announcement.important,
@@ -426,7 +460,7 @@ def is_member_of_chat_group(db: Session, chat_group_id: str, user_id: str) -> bo
     if not chat_group or not user:
         return False
     
-    if user.id == chat_group.teacher_id:
+    if user.role == "admin" or user.id == chat_group.teacher_id:
         return True
     
     return user in chat_group.members
@@ -437,10 +471,10 @@ def get_messages(db: Session, chat_group_id: str, skip: int = 0, limit: int = 10
         models.Message.chat_group_id == chat_group_id
     ).order_by(models.Message.created_at).offset(skip).limit(limit).all()
 
-def create_message(db: Session, message: schemas.MessageCreate):
+def create_message(db: Session, message: schemas.MessageCreate, sender_id: str):
     db_message = models.Message(
         content=message.content,
-        sender_id=message.sender_id,
+        sender_id=sender_id,
         chat_group_id=message.chat_group_id
     )
     db.add(db_message)

@@ -53,7 +53,7 @@ class User(Base):
     department_id = Column(String, ForeignKey("departments.id"), nullable=True)
     avatar = Column(String, nullable=True)
     semester = Column(String, nullable=True)
-    is_active = Column(Boolean, default=True)
+    is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     # Relationships
@@ -95,6 +95,7 @@ class Assignment(Base):
     department = Column(String)
     department_id = Column(String, ForeignKey("departments.id"), nullable=True)
     subject = Column(String)
+    subject_id = Column(String, ForeignKey("subjects.id"), nullable=True, index=True)
     author_id = Column(String, ForeignKey("users.id"))
     attachments = Column(String, nullable=True)  # JSON string of file paths
     semester = Column(String)
@@ -116,6 +117,7 @@ class Lecture(Base):
     department = Column(String)
     department_id = Column(String, ForeignKey("departments.id"), nullable=True)
     subject = Column(String)
+    subject_id = Column(String, ForeignKey("subjects.id"), nullable=True, index=True)
     professor_id = Column(String, ForeignKey("users.id"))
     materials = Column(String, nullable=True)  # JSON string of file paths
     semester = Column(String)
@@ -153,7 +155,7 @@ class ChatGroup(Base):
     teacher_id = Column(String, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     semester = Column(String)
-    is_active = Column(Boolean, default=True)
+    is_active = Column(Boolean, default=True, nullable=False)
     
     # Relationships
     subject = relationship("Subject", back_populates="chat_group")

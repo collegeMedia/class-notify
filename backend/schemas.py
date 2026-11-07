@@ -28,7 +28,7 @@ class Department(DepartmentBase):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # User schemas
 class UserBase(BaseModel):
@@ -49,7 +49,7 @@ class User(UserBase):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Announcement schemas
 class AnnouncementBase(BaseModel):
@@ -61,7 +61,8 @@ class AnnouncementBase(BaseModel):
     semester: Optional[str] = None
 
 class AnnouncementCreate(AnnouncementBase):
-    author_id: str
+    # Ignored by the API: the author is always the authenticated user.
+    author_id: Optional[str] = None
 
 class Announcement(AnnouncementBase):
     id: str
@@ -69,7 +70,7 @@ class Announcement(AnnouncementBase):
     author: User
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Assignment schemas
 class AssignmentBase(BaseModel):
@@ -83,15 +84,20 @@ class AssignmentBase(BaseModel):
     semester: str
 
 class AssignmentCreate(AssignmentBase):
-    author_id: str
+    # Send subject_id (preferred) or subject as a code/name; one of them is required.
+    subject: Optional[str] = None
+    subject_id: Optional[str] = None
+    # Ignored for teachers (always the caller); admins may set it.
+    author_id: Optional[str] = None
 
 class Assignment(AssignmentBase):
     id: str
+    subject_id: Optional[str] = None
     created_at: datetime
     author: User
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Lecture schemas
 class LectureBase(BaseModel):
@@ -108,14 +114,19 @@ class LectureBase(BaseModel):
     semester: str
 
 class LectureCreate(LectureBase):
-    professor_id: str
+    # Send subject_id (preferred) or subject as a code/name; one of them is required.
+    subject: Optional[str] = None
+    subject_id: Optional[str] = None
+    # Ignored for teachers (always the caller); admins may set it.
+    professor_id: Optional[str] = None
 
 class Lecture(LectureBase):
     id: str
+    subject_id: Optional[str] = None
     professor: User
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Subject schemas
 class SubjectBase(BaseModel):
@@ -136,7 +147,7 @@ class Subject(SubjectBase):
     professor: User
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Subject Enrollment schemas
 class SubjectEnrollmentCreate(BaseModel):
@@ -149,7 +160,7 @@ class SubjectEnrollment(BaseModel):
     enrolled_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # ChatGroup schemas
 class ChatGroupBase(BaseModel):
@@ -167,13 +178,13 @@ class ChatGroup(ChatGroupBase):
     teacher: User
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class ChatGroupWithMembers(ChatGroup):
     members: List[User]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Message schemas
 class MessageBase(BaseModel):
@@ -181,7 +192,8 @@ class MessageBase(BaseModel):
     chat_group_id: str
 
 class MessageCreate(MessageBase):
-    sender_id: str
+    # Ignored by the API: the sender is always the authenticated user.
+    sender_id: Optional[str] = None
 
 class Message(MessageBase):
     id: str
@@ -189,4 +201,4 @@ class Message(MessageBase):
     sender: User
 
     class Config:
-        orm_mode = True
+        from_attributes = True

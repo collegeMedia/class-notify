@@ -5,17 +5,18 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import timedelta
 import models, schemas, crud
-from database import engine, get_db
+from database import get_db
 from auth import (
     create_access_token, 
     get_current_user, 
     get_current_admin_user, 
+    get_current_staff_user,
+    is_staff,
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
 
-models.Base.metadata.create_all(bind=engine)
-
-app = FastAPI(title="University Management API")
+# Schema is managed by Alembic: run `alembic upgrade head` before starting the app.
+app =FastAPI(title="University Management API")
 
 # Add CORS middleware
 app.add_middleware(
@@ -31,6 +32,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+def require_subject_teacher_or_admin(db: Session, current_user: models.User, subject_id: str) -> models.Subject:
+    """Allow admins, or the teacher assigned to this subject. Raises 404/403 otherwise."""
+    subject = crud.get_subject(db, subject_id=subject_id)
+    if subject is None:
+        raise HTTPException(status_code=404, detail="Subject not found")
+    if current_user.role == "admin":
+        return subject
+    if current_user.role not in ["professor", "teacher"] or subject.professor_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only manage subjects you teach")
+    return subject
+
 @app.get("/")
 def read_root():
     return {"message": "University Management API is running"}
@@ -41,6 +53,8 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db_user = crud.get_user_by_email(db, email=user.email)
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
+    # Self-registration always creates a student; staff accounts are created by admins via POST /users/.
+    user = user.model_copy(update={"role": "student"})
     return crud.create_user(db=db, user=user)
 
 @app.post("/auth/login", response_model=schemas.Token)
@@ -109,47 +123,66 @@ def create_user(
     return crud.create_user(db=db, user=user)
 
 @app.get("/users/", response_model=List[schemas.User])
-def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def read_users(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_staff_user)
+):
     users = crud.get_users(db, skip=skip, limit=limit)
     return users
 
 @app.get("/users/{user_id}", response_model=schemas.User)
-def read_user(user_id: str, db: Session = Depends(get_db)):
+def read_user(
+    user_id: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    if current_user.id != user_id and not is_staff(current_user):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
     db_user = crud.get_user(db, user_id=user_id)
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return db_user
 
+# --- Assignment / lecture permission helpers ---
+TEACHER_ROLES = ["professor", "teacher"]
+
+def resolve_subject_or_400(db: Session, subject_id: Optional[str], subject_ref: Optional[str]) -> models.Subject:
+    try:
+        return crud.resolve_subject(db, subject_id=subject_id, subject_ref=subject_ref)
+    except crud.SubjectLookupError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+def require_teacher_role(current_user: models.User, kind: str, action: str):
+    if current_user.role not in TEACHER_ROLES:
+        raise HTTPException(status_code=403, detail=f"Only professors and admins can {action} {kind}")
+
+def require_teaches(db: Session, current_user: models.User, subject: Optional[models.Subject], kind: str, action: str):
+    if not crud.is_professor_of_subject(db, current_user.id, subject):
+        raise HTTPException(status_code=403, detail=f"You can only {action} {kind} for subjects you teach")
+
 # Assignment endpoints
 @app.post("/assignments/", response_model=schemas.Assignment)
 def create_assignment(
-    assignment: schemas.AssignmentCreate, 
+    assignment: schemas.AssignmentCreate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
+    subject = resolve_subject_or_400(db, assignment.subject_id, assignment.subject)
     if current_user.role == "admin":
-        return crud.create_assignment(db=db, assignment=assignment)
-    
-    if current_user.role not in ["professor", "teacher"]:
-        raise HTTPException(
-            status_code=403, 
-            detail="Only professors and admins can create assignments"
-        )
-    
-    if not crud.is_professor_of_subject(db, current_user.id, assignment.subject):
-        raise HTTPException(
-            status_code=403,
-            detail="You can only create assignments for subjects you teach"
-        )
-    
-    return crud.create_assignment(db=db, assignment=assignment)
+        return crud.create_assignment(db, assignment, subject, author_id=assignment.author_id or current_user.id)
+
+    require_teacher_role(current_user, "assignments", "create")
+    require_teaches(db, current_user, subject, "assignments", "create")
+    return crud.create_assignment(db, assignment, subject, author_id=current_user.id)
 
 @app.get("/assignments/", response_model=List[schemas.Assignment])
 def read_assignments(
-    department: Optional[str] = None, 
+    department: Optional[str] = None,
     semester: Optional[str] = None,
-    skip: int = 0, 
-    limit: int = 100, 
+    skip: int = 0,
+    limit: int = 100,
     db: Session = Depends(get_db)
 ):
     assignments = crud.get_assignments(db, skip=skip, limit=limit, department=department, semester=semester)
@@ -172,29 +205,19 @@ def update_assignment(
     db_assignment = crud.get_assignment(db, assignment_id)
     if not db_assignment:
         raise HTTPException(status_code=404, detail="Assignment not found")
-    
+
+    new_subject = resolve_subject_or_400(db, assignment.subject_id, assignment.subject)
     if current_user.role == "admin":
-        return crud.update_assignment(db, assignment_id, assignment)
-    
-    if current_user.role not in ["professor", "teacher"]:
-        raise HTTPException(
-            status_code=403,
-            detail="Only professors and admins can update assignments"
-        )
-    
+        return crud.update_assignment(db, assignment_id, assignment, new_subject,
+                                      author_id=assignment.author_id or db_assignment.author_id)
+
+    require_teacher_role(current_user, "assignments", "update")
     if db_assignment.author_id != current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="You can only update assignments you created"
-        )
-    
-    if not crud.is_professor_of_subject(db, current_user.id, assignment.subject):
-        raise HTTPException(
-            status_code=403,
-            detail="You can only update assignments for subjects you teach"
-        )
-    
-    return crud.update_assignment(db, assignment_id, assignment)
+        raise HTTPException(status_code=403, detail="You can only update assignments you created")
+    # Must still teach the current subject, and the subject it is being moved to.
+    require_teaches(db, current_user, crud.subject_of_item(db, db_assignment), "assignments", "update")
+    require_teaches(db, current_user, new_subject, "assignments", "update")
+    return crud.update_assignment(db, assignment_id, assignment, new_subject, author_id=current_user.id)
 
 @app.delete("/assignments/{assignment_id}")
 def delete_assignment(
@@ -205,60 +228,40 @@ def delete_assignment(
     db_assignment = crud.get_assignment(db, assignment_id)
     if not db_assignment:
         raise HTTPException(status_code=404, detail="Assignment not found")
-    
-    if current_user.role == "admin":
-        if crud.delete_assignment(db, assignment_id):
-            return {"message": "Assignment deleted successfully"}
-        raise HTTPException(status_code=500, detail="Failed to delete assignment")
-    
-    if current_user.role not in ["professor", "teacher"]:
-        raise HTTPException(
-            status_code=403,
-            detail="Only professors and admins can delete assignments"
-        )
-    
-    if db_assignment.author_id != current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="You can only delete assignments you created"
-        )
-    
+
+    if current_user.role != "admin":
+        require_teacher_role(current_user, "assignments", "delete")
+        if db_assignment.author_id != current_user.id:
+            raise HTTPException(status_code=403, detail="You can only delete assignments you created")
+        require_teaches(db, current_user, crud.subject_of_item(db, db_assignment), "assignments", "delete")
+
     if crud.delete_assignment(db, assignment_id):
         return {"message": "Assignment deleted successfully"}
-    
     raise HTTPException(status_code=500, detail="Failed to delete assignment")
 
 # Lecture endpoints
 @app.post("/lectures/", response_model=schemas.Lecture)
 def create_lecture(
-    lecture: schemas.LectureCreate, 
+    lecture: schemas.LectureCreate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
+    subject = resolve_subject_or_400(db, lecture.subject_id, lecture.subject)
     if current_user.role == "admin":
-        return crud.create_lecture(db=db, lecture=lecture)
-    
-    if current_user.role not in ["professor", "teacher"]:
-        raise HTTPException(
-            status_code=403,
-            detail="Only professors and admins can create lectures"
-        )
-    
-    if not crud.is_professor_of_subject(db, current_user.id, lecture.subject):
-        raise HTTPException(
-            status_code=403,
-            detail="You can only create lectures for subjects you teach"
-        )
-    
-    return crud.create_lecture(db=db, lecture=lecture)
+        professor_id = lecture.professor_id or subject.professor_id or current_user.id
+        return crud.create_lecture(db, lecture, subject, professor_id=professor_id)
+
+    require_teacher_role(current_user, "lectures", "create")
+    require_teaches(db, current_user, subject, "lectures", "create")
+    return crud.create_lecture(db, lecture, subject, professor_id=current_user.id)
 
 @app.get("/lectures/", response_model=List[schemas.Lecture])
 def read_lectures(
-    department: Optional[str] = None, 
+    department: Optional[str] = None,
     semester: Optional[str] = None,
     date: Optional[str] = None,
-    skip: int = 0, 
-    limit: int = 100, 
+    skip: int = 0,
+    limit: int = 100,
     db: Session = Depends(get_db)
 ):
     lectures = crud.get_lectures(db, skip=skip, limit=limit, department=department, semester=semester, date=date)
@@ -281,29 +284,19 @@ def update_lecture(
     db_lecture = crud.get_lecture(db, lecture_id)
     if not db_lecture:
         raise HTTPException(status_code=404, detail="Lecture not found")
-    
+
+    new_subject = resolve_subject_or_400(db, lecture.subject_id, lecture.subject)
     if current_user.role == "admin":
-        return crud.update_lecture(db, lecture_id, lecture)
-    
-    if current_user.role not in ["professor", "teacher"]:
-        raise HTTPException(
-            status_code=403,
-            detail="Only professors and admins can update lectures"
-        )
-    
+        return crud.update_lecture(db, lecture_id, lecture, new_subject,
+                                   professor_id=lecture.professor_id or db_lecture.professor_id)
+
+    require_teacher_role(current_user, "lectures", "update")
     if db_lecture.professor_id != current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="You can only update lectures you created"
-        )
-    
-    if not crud.is_professor_of_subject(db, current_user.id, lecture.subject):
-        raise HTTPException(
-            status_code=403,
-            detail="You can only update lectures for subjects you teach"
-        )
-    
-    return crud.update_lecture(db, lecture_id, lecture)
+        raise HTTPException(status_code=403, detail="You can only update lectures you created")
+    # Must still teach the current subject, and the subject it is being moved to.
+    require_teaches(db, current_user, crud.subject_of_item(db, db_lecture), "lectures", "update")
+    require_teaches(db, current_user, new_subject, "lectures", "update")
+    return crud.update_lecture(db, lecture_id, lecture, new_subject, professor_id=current_user.id)
 
 @app.delete("/lectures/{lecture_id}")
 def delete_lecture(
@@ -314,27 +307,15 @@ def delete_lecture(
     db_lecture = crud.get_lecture(db, lecture_id)
     if not db_lecture:
         raise HTTPException(status_code=404, detail="Lecture not found")
-    
-    if current_user.role == "admin":
-        if crud.delete_lecture(db, lecture_id):
-            return {"message": "Lecture deleted successfully"}
-        raise HTTPException(status_code=500, detail="Failed to delete lecture")
-    
-    if current_user.role not in ["professor", "teacher"]:
-        raise HTTPException(
-            status_code=403,
-            detail="Only professors and admins can delete lectures"
-        )
-    
-    if db_lecture.professor_id != current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="You can only delete lectures you created"
-        )
-    
+
+    if current_user.role != "admin":
+        require_teacher_role(current_user, "lectures", "delete")
+        if db_lecture.professor_id != current_user.id:
+            raise HTTPException(status_code=403, detail="You can only delete lectures you created")
+        require_teaches(db, current_user, crud.subject_of_item(db, db_lecture), "lectures", "delete")
+
     if crud.delete_lecture(db, lecture_id):
         return {"message": "Lecture deleted successfully"}
-    
     raise HTTPException(status_code=500, detail="Failed to delete lecture")
 
 # Subject endpoints
@@ -384,8 +365,7 @@ def enroll_student(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    if current_user.role not in ["admin", "professor", "teacher"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    require_subject_teacher_or_admin(db, current_user, subject_id)
     
     result = crud.enroll_student_in_subject(db, student_id, subject_id)
     if not result:
@@ -400,8 +380,7 @@ def unenroll_student(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    if current_user.role not in ["admin", "professor", "teacher"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    require_subject_teacher_or_admin(db, current_user, subject_id)
     
     result = crud.unenroll_student_from_subject(db, student_id, subject_id)
     if not result:
@@ -415,6 +394,10 @@ def read_enrolled_students(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
+    if not is_staff(current_user):
+        subject = crud.get_subject(db, subject_id=subject_id)
+        if not subject or subject not in current_user.enrolled_subjects:
+            raise HTTPException(status_code=403, detail="Not enough permissions")
     students = crud.get_enrolled_students(db, subject_id)
     return students
 
@@ -424,13 +407,19 @@ def read_student_subjects(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
+    if current_user.id != student_id and not is_staff(current_user):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
     subjects = crud.get_student_subjects(db, student_id)
     return subjects
 
 # Announcement endpoints
 @app.post("/announcements/", response_model=schemas.Announcement)
-def create_announcement(announcement: schemas.AnnouncementCreate, db: Session = Depends(get_db)):
-    return crud.create_announcement(db=db, announcement=announcement)
+def create_announcement(
+    announcement: schemas.AnnouncementCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_staff_user)
+):
+    return crud.create_announcement(db=db, announcement=announcement, author_id=current_user.id)
 
 @app.get("/announcements/", response_model=List[schemas.Announcement])
 def read_announcements(
@@ -449,8 +438,10 @@ def create_chat_group(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    if current_user.role not in ["admin", "professor", "teacher"]:
-        raise HTTPException(status_code=403, detail="Only teachers and admins can create chat groups")
+    require_subject_teacher_or_admin(db, current_user, chat_group.subject_id)
+    if current_user.role != "admin":
+        # Teachers always own the groups they create; only admins may assign another teacher.
+        chat_group = chat_group.model_copy(update={"teacher_id": current_user.id})
     
     result = crud.create_chat_group(db=db, chat_group=chat_group)
     if not result:
@@ -466,6 +457,8 @@ def read_teacher_chat_groups(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
+    if current_user.id != teacher_id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not enough permissions")
     chat_groups = crud.get_chat_groups_for_teacher(db, teacher_id=teacher_id, skip=skip, limit=limit)
     return chat_groups
 
@@ -548,7 +541,7 @@ def create_message(
     if not crud.is_member_of_chat_group(db, message.chat_group_id, current_user.id):
         raise HTTPException(status_code=403, detail="You must be a member of this chat group to send messages")
     
-    return crud.create_message(db=db, message=message)
+    return crud.create_message(db=db, message=message, sender_id=current_user.id)
 
 @app.get("/messages/{chat_group_id}", response_model=List[schemas.Message])
 def read_messages(
